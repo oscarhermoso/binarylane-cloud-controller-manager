@@ -18,7 +18,23 @@ This cloud controller manager implements the following Kubernetes cloud provider
 - BinaryLane API token with appropriate permissions
 - Kubernetes 1.24+
 
-### Deployment
+### Quick Start with Helm (Recommended)
+
+```bash
+# Add the Helm repository
+helm repo add binarylane https://oscarhermoso.github.io/binarylane-cloud-controller-manager
+helm repo update
+
+# Install the chart
+helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
+  --namespace kube-system \
+  --set cloudControllerManager.apiToken="YOUR_API_TOKEN" \
+  --set cloudControllerManager.region="syd"
+```
+
+For more Helm configuration options, see the [Helm chart documentation](charts/binarylane-cloud-controller-manager/README.md).
+
+### Manual Deployment with Kubernetes Manifests
 
 1. **Create a secret with your BinaryLane API token:**
 

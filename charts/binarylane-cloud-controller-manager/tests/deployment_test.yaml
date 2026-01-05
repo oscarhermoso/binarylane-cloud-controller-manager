@@ -1,0 +1,156 @@
+suite: test deployment
+templates:
+  - deployment.yaml
+  - serviceaccount.yaml
+  - secret.yaml
+  - rbac.yaml
+tests:
+  - it: should create a deployment with correct replicas
+    set:
+      cloudControllerManager.apiToken: "test-token"
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should use correct image
+    set:
+      cloudControllerManager.apiToken: "test-token"
+      image.repository: "custom-repo"
+      image.tag: "v1.0.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "custom-repo:v1.0.0"
+
+  - it: should create secret when not using existing secret
+    template: secret.yaml
+    set:
+      cloudControllerManager.apiToken: "test-token"
+    asserts:
+      - isKind:
+          of: Secret
+      - equal:
+          path: stringData.api-token
+          value: "test-token"
+
+  - it: should not create secret when using existing secret
+    template: secret.yaml
+    set:
+      cloudControllerManager.existingSecret: "my-secret"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should have correct environment variables
+    set:
+      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.region: "syd"
+      cloudControllerManager.apiUrl: "https://api.test.com"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BINARYLANE_REGION
+            value: "syd"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BINARYLANE_API_URL
+            value: "https://api.test.com"
+
+  - it: should use correct service account
+    set:
+      cloudControllerManager.apiToken: "test-token"
+      serviceAccount.name: "custom-sa"
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: "custom-sa"
+
+  - it: should apply tolerations
+    set:
+      cloudControllerManager.apiToken: "test-token"
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+
+  - it: should apply node selector
+    set:
+      cloudControllerManager.apiToken: "test-token"
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector
+          value:
+            node-role.kubernetes.io/control-plane: ""
+
+  - it: should use host network
+    set:
+      cloudControllerManager.apiToken: "test-token"
+    asserts:
+      - equal:
+          path: spec.template.spec.hostNetwork
+          value: true
+
+  - it: should have security context
+    set:
+      cloudControllerManager.apiToken: "test-token"
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+
+  - it: should create RBAC resources
+    template: rbac.yaml
+    set:
+      cloudControllerManager.apiToken: "test-token"
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ClusterRole
+        documentIndex: 0
+      - isKind:
+          of: ClusterRoleBinding
+        documentIndex: 1
+
+  - it: should apply extra args
+    set:
+      cloudControllerManager.apiToken: "test-token"
+      extraArgs:
+        - "--configure-cloud-routes=true"
+        - "--cluster-cidr=10.244.0.0/16"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: "--configure-cloud-routes=true"
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: "--cluster-cidr=10.244.0.0/16"
+
+  - it: should set resource limits
+    set:
+      cloudControllerManager.apiToken: "test-token"
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "256Mi"
+        requests:
+          cpu: "200m"
+          memory: "128Mi"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: "500m"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: "200m"

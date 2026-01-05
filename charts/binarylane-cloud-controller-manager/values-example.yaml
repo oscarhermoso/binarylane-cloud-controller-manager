@@ -1,0 +1,115 @@
+# Example values for deploying BinaryLane Cloud Controller Manager
+# This is a YAML-formatted file.
+
+# Number of replicas (typically 1 for cloud controller manager)
+replicaCount: 1
+
+# Container image configuration
+image:
+  repository: ghcr.io/oscarhermoso/binarylane-cloud-controller-manager
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  # tag: "v0.1.0"
+
+# BinaryLane Cloud Controller Manager specific settings
+cloudControllerManager:
+  # REQUIRED: BinaryLane API token
+  # You can get this from your BinaryLane account settings
+  apiToken: "YOUR_BINARYLANE_API_TOKEN_HERE"
+  
+  # OPTIONAL: Specify the BinaryLane region
+  # Examples: "syd" (Sydney), "bne" (Brisbane), "per" (Perth)
+  region: "syd"
+  
+  # OPTIONAL: BinaryLane API URL (use default unless testing)
+  apiUrl: "https://api.binarylane.com.au"
+  
+  # OPTIONAL: Use an existing secret instead of creating one
+  # If set, apiToken above will be ignored
+  # existingSecret: "binarylane-api-token"
+  # existingSecretKey: "api-token"
+
+# Service account configuration
+serviceAccount:
+  create: true
+  automount: true
+  # annotations: {}
+  # name: ""
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Security contexts
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# Node selector - run on control plane nodes
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+# Tolerations - allow scheduling on control plane nodes
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+  - key: node.cloudprovider.kubernetes.io/uninitialized
+    operator: Exists
+    effect: NoSchedule
+
+# Affinity rules (empty by default)
+affinity: {}
+
+# Priority class for pod scheduling
+priorityClassName: system-cluster-critical
+
+# Use host network (required for cloud controller manager)
+hostNetwork: true
+
+# Logging verbosity (0-10, higher is more verbose)
+verbosity: 2
+
+# Additional command-line arguments
+extraArgs: []
+  # - --cluster-cidr=10.244.0.0/16
+  # - --configure-cloud-routes=false
+
+# Additional environment variables
+extraEnv: []
+  # - name: HTTP_PROXY
+  #   value: "http://proxy.example.com:8080"
+
+# Additional volumes
+extraVolumes: []
+  # - name: ca-certs
+  #   hostPath:
+  #     path: /etc/ssl/certs
+
+# Additional volume mounts
+extraVolumeMounts: []
+  # - name: ca-certs
+  #   mountPath: /etc/ssl/certs
+  #   readOnly: true

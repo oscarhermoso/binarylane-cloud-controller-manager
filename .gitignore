@@ -34,3 +34,9 @@ Thumbs.db
 openapi.json
 pkg/binarylane/client_gen.go
 pkg/binarylane/types_gen.go
+
+# Helm
+*.tgz
+charts/*/charts/
+.cr-release-packages/
+.cr-index/
