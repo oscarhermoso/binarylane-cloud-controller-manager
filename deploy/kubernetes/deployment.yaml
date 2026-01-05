@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: binarylane-cloud-controller-manager
+  namespace: kube-system
+  labels:
+    app: binarylane-cloud-controller-manager
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: binarylane-cloud-controller-manager
+  template:
+    metadata:
+      labels:
+        app: binarylane-cloud-controller-manager
+    spec:
+      dnsPolicy: Default
+      hostNetwork: true
+      serviceAccountName: cloud-controller-manager
+      tolerations:
+        - key: "node.cloudprovider.kubernetes.io/uninitialized"
+          value: "true"
+          effect: "NoSchedule"
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+        - key: "node-role.kubernetes.io/master"
+          effect: NoSchedule
+        - key: "node-role.kubernetes.io/control-plane"
+          effect: NoSchedule
+      containers:
+        - name: binarylane-cloud-controller-manager
+          image: binarylane-cloud-controller-manager:latest
+          imagePullPolicy: Always
+          command:
+            - "/binarylane-cloud-controller-manager"
+            - "--cloud-provider=binarylane"
+            - "--leader-elect=true"
+            - "--use-service-account-credentials"
+            - "--allocate-node-cidrs=true"
+            - "--cluster-cidr=10.244.0.0/16"
+            - "--v=2"
+          env:
+            - name: BINARYLANE_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: binarylane-cloud-controller-manager
+                  key: access-token
+            - name: BINARYLANE_REGION
+              value: "syd"  # Change to your region
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50Mi
+            limits:
+              cpu: 200m
+              memory: 100Mi
