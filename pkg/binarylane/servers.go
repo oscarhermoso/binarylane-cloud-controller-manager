@@ -1,125 +1,93 @@
 package binarylane
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
+"context"
+"encoding/json"
+"fmt"
+"io"
 )
 
-// Server represents a BinaryLane server (instance)
-type Server struct {
-	ID        int64    `json:"id"`
-	Name      string   `json:"name"`
-	Status    string   `json:"status"`
-	Region    Region   `json:"region"`
-	Networks  Networks `json:"networks"`
-	CreatedAt string   `json:"created_at"`
-	Memory    int      `json:"memory"`
-	Vcpus     int      `json:"vcpus"`
-	Disk      int      `json:"disk"`
+// ListServers lists all servers
+func (c *BinaryLaneClient) ListServers(ctx context.Context) ([]Server, error) {
+resp, err := c.GetServers(ctx, &GetServersParams{})
+if err != nil {
+return nil, fmt.Errorf("failed to list servers: %w", err)
+}
+defer resp.Body.Close()
+
+if resp.StatusCode != 200 {
+body, _ := io.ReadAll(resp.Body)
+return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 }
 
-// Region represents a BinaryLane region
-type Region struct {
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+body, err := io.ReadAll(resp.Body)
+if err != nil {
+return nil, fmt.Errorf("failed to read response: %w", err)
 }
 
-// Networks represents network configuration
-type Networks struct {
-	V4 []Network `json:"v4"`
-	V6 []Network `json:"v6"`
+var serversResp ServersResponse
+if err := json.Unmarshal(body, &serversResp); err != nil {
+return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 }
 
-// Network represents a network interface
-type Network struct {
-	IPAddress   string      `json:"ip_address"`
-	Netmask     interface{} `json:"netmask"` // Can be string or int
-	Gateway     string      `json:"gateway"`
-	Type        string      `json:"type"` // "public" or "private"
-	ReverseName string      `json:"reverse_name,omitempty"`
+return serversResp.Servers, nil
 }
 
-// ServersResponse represents the response from listing servers
-type ServersResponse struct {
-	Servers []Server `json:"servers"`
-	Meta    Meta     `json:"meta"`
+// GetServer gets a server by ID
+func (c *BinaryLaneClient) GetServer(ctx context.Context, serverID int64) (*Server, error) {
+resp, err := c.GetServersServerId(ctx, serverID)
+if err != nil {
+return nil, fmt.Errorf("failed to get server: %w", err)
+}
+defer resp.Body.Close()
+
+if resp.StatusCode != 200 {
+body, _ := io.ReadAll(resp.Body)
+return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 }
 
-// ServerResponse represents the response from getting a single server
-type ServerResponse struct {
-	Server Server `json:"server"`
+body, err := io.ReadAll(resp.Body)
+if err != nil {
+return nil, fmt.Errorf("failed to read response: %w", err)
 }
 
-// Meta represents pagination metadata
-type Meta struct {
-	Total int `json:"total"`
+var serverResp ServerResponse
+if err := json.Unmarshal(body, &serverResp); err != nil {
+return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 }
 
-// GetServer retrieves a server by ID
-func (c *Client) GetServer(ctx context.Context, serverID int64) (*Server, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/servers/%d", serverID), nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if err := parseError(resp); err != nil {
-		return nil, err
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var serverResp ServerResponse
-	if err := json.Unmarshal(body, &serverResp); err != nil {
-		return nil, err
-	}
-
-	return &serverResp.Server, nil
+return &serverResp.Server, nil
 }
 
-// ListServers retrieves all servers
-func (c *Client) ListServers(ctx context.Context) ([]Server, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, "/servers", nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+// GetServerByName gets a server by hostname
+func (c *BinaryLaneClient) GetServerByName(ctx context.Context, name string) (*Server, error) {
+hostname := name
+resp, err := c.GetServers(ctx, &GetServersParams{
+Hostname: &hostname,
+})
+if err != nil {
+return nil, fmt.Errorf("failed to get server by name: %w", err)
+}
+defer resp.Body.Close()
 
-	if err := parseError(resp); err != nil {
-		return nil, err
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var serversResp ServersResponse
-	if err := json.Unmarshal(body, &serversResp); err != nil {
-		return nil, err
-	}
-
-	return serversResp.Servers, nil
+if resp.StatusCode != 200 {
+body, _ := io.ReadAll(resp.Body)
+return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 }
 
-// GetServerByName retrieves a server by name
-func (c *Client) GetServerByName(ctx context.Context, name string) (*Server, error) {
-	servers, err := c.ListServers(ctx)
-	if err != nil {
-		return nil, err
-	}
+body, err := io.ReadAll(resp.Body)
+if err != nil {
+return nil, fmt.Errorf("failed to read response: %w", err)
+}
 
-	for _, server := range servers {
-		if server.Name == name {
-			return &server, nil
-		}
-	}
+var serversResp ServersResponse
+if err := json.Unmarshal(body, &serversResp); err != nil {
+return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+}
 
-	return nil, fmt.Errorf("server %q not found", name)
+if len(serversResp.Servers) == 0 {
+return nil, fmt.Errorf("server not found: %s", name)
+}
+
+return &serversResp.Servers[0], nil
 }

@@ -15,7 +15,7 @@ const (
 
 // Cloud is the BinaryLane implementation of the cloud provider interface
 type Cloud struct {
-	client *binarylane.Client
+	client *binarylane.BinaryLaneClient
 	region string
 }
 
@@ -25,7 +25,10 @@ func NewCloud(token, region string) (cloudprovider.Interface, error) {
 		return nil, fmt.Errorf("BinaryLane API token is required")
 	}
 
-	client := binarylane.NewClient(token)
+	client, err := binarylane.NewBinaryLaneClient(token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create BinaryLane client: %w", err)
+	}
 
 	return &Cloud{
 		client: client,

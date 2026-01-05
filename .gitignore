@@ -29,3 +29,8 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated files
+openapi.json
+pkg/binarylane/client_gen.go
+pkg/binarylane/types_gen.go

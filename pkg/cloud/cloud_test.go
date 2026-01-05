@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/oscarhermoso/binarylane-cloud-controller-manager/pkg/binarylane"
@@ -18,7 +19,7 @@ func (m *mockClient) GetServer(ctx context.Context, serverID int64) (*binarylane
 	if server, ok := m.servers[serverID]; ok {
 		return server, nil
 	}
-	return nil, &binarylane.ErrorResponse{Message: "server not found"}
+	return nil, fmt.Errorf("server not found")
 }
 
 func (m *mockClient) GetServerByName(ctx context.Context, name string) (*binarylane.Server, error) {
@@ -27,7 +28,7 @@ func (m *mockClient) GetServerByName(ctx context.Context, name string) (*binaryl
 			return server, nil
 		}
 	}
-	return nil, &binarylane.ErrorResponse{Message: "server not found"}
+	return nil, fmt.Errorf("server not found")
 }
 
 func (m *mockClient) ListServers(ctx context.Context) ([]binarylane.Server, error) {
@@ -42,7 +43,7 @@ func TestInstanceExists(t *testing.T) {
 	mock := &mockClient{
 		servers: map[int64]*binarylane.Server{
 			123: {
-				ID:     123,
+				Id:     123,
 				Name:   "test-node",
 				Status: "active",
 			},
@@ -50,7 +51,7 @@ func TestInstanceExists(t *testing.T) {
 	}
 
 	inst := &instancesV2{
-		client: &binarylane.Client{},
+		client: &binarylane.BinaryLaneClient{},
 		region: "syd",
 	}
 

@@ -25,7 +25,7 @@ const (
 )
 
 type loadBalancers struct {
-	client *binarylane.Client
+	client *binarylane.BinaryLaneClient
 	region string
 }
 
@@ -52,7 +52,7 @@ func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 	return &v1.LoadBalancerStatus{
 		Ingress: []v1.LoadBalancerIngress{
 			{
-				IP: lb.IP,
+				IP: lb.Ip,
 			},
 		},
 	}, true, nil
@@ -82,17 +82,17 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	// Build health check configuration
 	healthCheck := l.buildHealthCheck(service)
 
-	lbReq := &binarylane.LoadBalancerRequest{
-		Name:            l.getLoadBalancerName(clusterName, service),
-		Region:          l.region,
-		ForwardingRules: forwardingRules,
-		HealthCheck:     healthCheck,
-		ServerIDs:       serverIDs,
-	}
-
 	var lb *binarylane.LoadBalancer
 	if lbID == 0 {
 		// Create new load balancer
+		region := l.region
+		lbReq := &binarylane.CreateLoadBalancerRequest{
+			Name:            l.getLoadBalancerName(clusterName, service),
+			Region:          &region,
+			ForwardingRules: forwardingRules,
+			HealthCheck:     healthCheck,
+			ServerIds:       &serverIDs,
+		}
 		lb, err = l.client.CreateLoadBalancer(ctx, lbReq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create load balancer: %w", err)
@@ -102,6 +102,11 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		// by the Kubernetes controller manager, so we don't need to update annotations here
 	} else {
 		// Update existing load balancer
+		lbReq := &binarylane.UpdateLoadBalancerRequest{
+			Name:            l.getLoadBalancerName(clusterName, service),
+			ForwardingRules: forwardingRules,
+			HealthCheck:     healthCheck,
+		}
 		lb, err = l.client.UpdateLoadBalancer(ctx, lbID, lbReq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update load balancer: %w", err)
@@ -111,7 +116,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	return &v1.LoadBalancerStatus{
 		Ingress: []v1.LoadBalancerIngress{
 			{
-				IP: lb.IP,
+				IP: lb.Ip,
 			},
 		},
 	}, nil
@@ -141,7 +146,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 	}
 
 	// Determine which servers to add and remove
-	toAdd, toRemove := diffServerIDs(lb.ServerIDs, serverIDs)
+	toAdd, toRemove := diffServerIDs(lb.ServerIds, serverIDs)
 
 	// Add servers
 	if len(toAdd) > 0 {
@@ -225,28 +230,29 @@ func (l *loadBalancers) getServerIDsForNodes(ctx context.Context, nodes []*v1.No
 			// Skip nodes that can't be found
 			continue
 		}
-		serverIDs = append(serverIDs, server.ID)
+		serverIDs = append(serverIDs, server.Id)
 	}
 
 	return serverIDs, nil
 }
 
 // buildForwardingRules creates forwarding rules from service ports
-func (l *loadBalancers) buildForwardingRules(service *v1.Service) []binarylane.ForwardingRule {
+func (l *loadBalancers) buildForwardingRules(service *v1.Service) *[]binarylane.ForwardingRuleRequest {
 	protocol := l.getProtocol(service)
 	if protocol == "" {
 		protocol = "http"
 	}
 	
-	return []binarylane.ForwardingRule{
+	rules := []binarylane.ForwardingRuleRequest{
 		{
-			EntryProtocol: strings.ToLower(protocol),
+			EntryProtocol: binarylane.LoadBalancerRuleProtocol(strings.ToLower(protocol)),
 		},
 	}
+	return &rules
 }
 
 // buildHealthCheck creates health check configuration from service annotations
-func (l *loadBalancers) buildHealthCheck(service *v1.Service) *binarylane.HealthCheck {
+func (l *loadBalancers) buildHealthCheck(service *v1.Service) *binarylane.HealthCheckRequest {
 	protocol := "http"
 	if p, ok := service.Annotations[annBinaryLaneHealthCheckProtocol]; ok && p != "" {
 		protocol = p
@@ -257,9 +263,10 @@ func (l *loadBalancers) buildHealthCheck(service *v1.Service) *binarylane.Health
 		path = p
 	}
 
-	return &binarylane.HealthCheck{
-		Protocol: protocol,
-		Path:     path,
+	healthCheckProtocol := binarylane.HealthCheckProtocol(protocol)
+	return &binarylane.HealthCheckRequest{
+		Path:     &path,
+		Protocol: &healthCheckProtocol,
 	}
 }
 

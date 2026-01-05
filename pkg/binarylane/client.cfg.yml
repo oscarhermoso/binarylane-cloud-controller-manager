@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/HEAD/configuration-schema.json
+package: binarylane
+generate:
+  client: true
+output: pkg/binarylane/client_gen.go

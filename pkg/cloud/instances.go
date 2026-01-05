@@ -12,7 +12,7 @@ import (
 )
 
 type instancesV2 struct {
-	client *binarylane.Client
+	client *binarylane.BinaryLaneClient
 	region string
 }
 
@@ -48,7 +48,7 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 	}
 
 	// Build the provider ID
-	providerID := fmt.Sprintf("binarylane://%d", server.ID)
+	providerID := fmt.Sprintf("binarylane://%d", server.Id)
 
 	// Extract addresses
 	addresses := []v1.NodeAddress{
@@ -63,12 +63,12 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 		if net.Type == "public" {
 			addresses = append(addresses, v1.NodeAddress{
 				Type:    v1.NodeExternalIP,
-				Address: net.IPAddress,
+				Address: net.IpAddress,
 			})
 		} else {
 			addresses = append(addresses, v1.NodeAddress{
 				Type:    v1.NodeInternalIP,
-				Address: net.IPAddress,
+				Address: net.IpAddress,
 			})
 		}
 	}
@@ -78,7 +78,7 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 		if net.Type == "public" {
 			addresses = append(addresses, v1.NodeAddress{
 				Type:    v1.NodeExternalIP,
-				Address: net.IPAddress,
+				Address: net.IpAddress,
 			})
 		}
 	}

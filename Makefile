@@ -1,4 +1,4 @@
-.PHONY: build test clean docker-build fmt vet
+.PHONY: build test clean docker-build fmt vet generate
 
 BINARY_NAME=binarylane-cloud-controller-manager
 DOCKER_IMAGE=binarylane-cloud-controller-manager
@@ -7,11 +7,15 @@ LDFLAGS=-ldflags "-X main.version=$(VERSION)"
 
 all: test build
 
-build:
+generate:
+	@echo "Generating API client from OpenAPI spec..."
+	go generate ./...
+
+build: generate
 	@echo "Building $(BINARY_NAME)..."
 	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
 
-test:
+test: generate
 	@echo "Running tests..."
 	go test -v -race -coverprofile=coverage.out ./...
 

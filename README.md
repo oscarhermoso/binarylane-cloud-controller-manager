@@ -44,6 +44,23 @@ Note: Update the `BINARYLANE_REGION` environment variable in `deployment.yaml` t
 
 ### Building from Source
 
+**Generate API Client:**
+
+The BinaryLane API client is automatically generated from the OpenAPI specification:
+
+```bash
+# Generate the API client
+go generate ./...
+```
+
+This will:
+1. Fetch the latest OpenAPI spec from BinaryLane's API
+2. Generate type-safe client code using `oapi-codegen`
+
+The generated files (`client_gen.go` and `types_gen.go`) are gitignored and should be regenerated during build.
+
+**Build the Project:**
+
 ```bash
 # Build the binary
 make build
