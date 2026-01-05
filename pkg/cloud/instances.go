@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/oscarhermoso/binarylane-cloud-controller-manager/pkg/binarylane"
 	v1 "k8s.io/api/core/v1"
@@ -109,8 +110,8 @@ func (i *instancesV2) getServerForNode(ctx context.Context, node *v1.Node) (*bin
 // Provider ID format: binarylane://123456
 func parseProviderID(providerID string) (int64, error) {
 	prefix := "binarylane://"
-	if len(providerID) <= len(prefix) {
-		return 0, fmt.Errorf("invalid provider ID format")
+	if !strings.HasPrefix(providerID, prefix) {
+		return 0, fmt.Errorf("invalid provider ID format: %s (expected prefix: %s)", providerID, prefix)
 	}
 
 	idStr := providerID[len(prefix):]

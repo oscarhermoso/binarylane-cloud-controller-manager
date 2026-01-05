@@ -98,9 +98,8 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 			return nil, fmt.Errorf("failed to create load balancer: %w", err)
 		}
 
-		// Store the load balancer ID in the service annotation
-		// Note: In a real implementation, you would need to update the service object
-		// This is typically done by the controller
+		// The load balancer ID is stored in the service status.LoadBalancer.Ingress
+		// by the Kubernetes controller manager, so we don't need to update annotations here
 	} else {
 		// Update existing load balancer
 		lb, err = l.client.UpdateLoadBalancer(ctx, lbID, lbReq)
@@ -262,12 +261,6 @@ func (l *loadBalancers) buildHealthCheck(service *v1.Service) *binarylane.Health
 		Protocol: protocol,
 		Path:     path,
 	}
-}
-
-// buildStickySessions creates sticky sessions configuration from service annotations
-func (l *loadBalancers) buildStickySessions(service *v1.Service) interface{} {
-	// Sticky sessions not supported in the current API schema
-	return nil
 }
 
 // getProtocol returns the protocol from service annotations
