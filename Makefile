@@ -11,11 +11,11 @@ generate:
 	@echo "Generating API client from OpenAPI spec..."
 	go generate ./...
 
-build: generate
+build:
 	@echo "Building $(BINARY_NAME)..."
 	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
 
-test: generate
+test:
 	@echo "Running tests..."
 	go test -v -race -coverprofile=coverage.out ./...
 

@@ -31,10 +31,10 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Generated files
-openapi.json
-pkg/binarylane/client_gen.go
-pkg/binarylane/types_gen.go
+# Generated files are now committed to the repository
+# openapi.json
+# pkg/binarylane/client_gen.go
+# pkg/binarylane/types_gen.go
 
 # Helm
 *.tgz
