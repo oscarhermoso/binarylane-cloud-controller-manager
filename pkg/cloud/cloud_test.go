@@ -11,8 +11,7 @@ import (
 )
 
 type mockClient struct {
-	servers       map[int64]*binarylane.Server
-	loadBalancers map[int64]*binarylane.LoadBalancer
+	servers map[int64]*binarylane.Server
 }
 
 func (m *mockClient) GetServer(ctx context.Context, serverID int64) (*binarylane.Server, error) {
@@ -114,97 +113,4 @@ func TestParseProviderID(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestGetLoadBalancerName(t *testing.T) {
-	lb := &loadBalancers{
-		region: "syd",
-	}
-
-	service := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-service",
-			Namespace: "default",
-		},
-	}
-
-	name := lb.getLoadBalancerName("test-cluster", service)
-	expected := "k8s-test-cluster-default-test-service"
-	if name != expected {
-		t.Errorf("getLoadBalancerName() = %v, want %v", name, expected)
-	}
-}
-
-func TestDiffServerIDs(t *testing.T) {
-	tests := []struct {
-		name        string
-		current     []int64
-		desired     []int64
-		wantToAdd   []int64
-		wantToRemove []int64
-	}{
-		{
-			name:        "no changes",
-			current:     []int64{1, 2, 3},
-			desired:     []int64{1, 2, 3},
-			wantToAdd:   nil,
-			wantToRemove: nil,
-		},
-		{
-			name:        "add servers",
-			current:     []int64{1, 2},
-			desired:     []int64{1, 2, 3, 4},
-			wantToAdd:   []int64{3, 4},
-			wantToRemove: nil,
-		},
-		{
-			name:        "remove servers",
-			current:     []int64{1, 2, 3, 4},
-			desired:     []int64{1, 2},
-			wantToAdd:   nil,
-			wantToRemove: []int64{3, 4},
-		},
-		{
-			name:        "add and remove",
-			current:     []int64{1, 2, 3},
-			desired:     []int64{2, 3, 4},
-			wantToAdd:   []int64{4},
-			wantToRemove: []int64{1},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotToAdd, gotToRemove := diffServerIDs(tt.current, tt.desired)
-			
-			if !equalInt64Slices(gotToAdd, tt.wantToAdd) {
-				t.Errorf("diffServerIDs() toAdd = %v, want %v", gotToAdd, tt.wantToAdd)
-			}
-			if !equalInt64Slices(gotToRemove, tt.wantToRemove) {
-				t.Errorf("diffServerIDs() toRemove = %v, want %v", gotToRemove, tt.wantToRemove)
-			}
-		})
-	}
-}
-
-func equalInt64Slices(a, b []int64) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	if len(a) == 0 && len(b) == 0 {
-		return true
-	}
-	
-	aMap := make(map[int64]bool)
-	for _, v := range a {
-		aMap[v] = true
-	}
-	
-	for _, v := range b {
-		if !aMap[v] {
-			return false
-		}
-	}
-	
-	return true
 }

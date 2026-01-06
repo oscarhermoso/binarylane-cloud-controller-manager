@@ -7,8 +7,9 @@ A Kubernetes Cloud Controller Manager implementation for BinaryLane cloud infras
 This cloud controller manager implements the following Kubernetes cloud provider interfaces:
 
 - **Node Controller**: Manages node lifecycle and updates node metadata with cloud-specific information
-- **Service Controller**: Provisions and manages load balancers for LoadBalancer-type services
 - **Zone Controller**: Provides availability zone information for nodes
+
+> **Note**: Load balancer support has been removed as BinaryLane's load balancer API is not fully compatible with the Kubernetes Load Balancer specification.
 
 ## Installation
 
@@ -95,34 +96,6 @@ make docker-build
 - `BINARYLANE_ACCESS_TOKEN` (required): Your BinaryLane API token
 - `BINARYLANE_REGION` (optional): The default region for resources
 
-### Service Annotations
-
-When creating a LoadBalancer service, you can use the following annotations:
-
-- `service.beta.kubernetes.io/binarylane-loadbalancer-protocol`: Protocol for the load balancer (http or https)
-- `service.beta.kubernetes.io/binarylane-loadbalancer-healthcheck-protocol`: Health check protocol
-- `service.beta.kubernetes.io/binarylane-loadbalancer-healthcheck-path`: Health check path (default: "/")
-
-Example service:
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-service
-  annotations:
-    service.beta.kubernetes.io/binarylane-loadbalancer-protocol: "https"
-    service.beta.kubernetes.io/binarylane-loadbalancer-healthcheck-path: "/health"
-spec:
-  type: LoadBalancer
-  ports:
-    - port: 443
-      targetPort: 8080
-  selector:
-    app: my-app
-```
-
-## Node Configuration
 
 Nodes will be automatically configured with:
 - Provider ID in the format `binarylane://<server-id>`
