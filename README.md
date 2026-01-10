@@ -124,6 +124,7 @@ Nodes will be automatically configured with:
 
 ### Running Tests
 
+**Unit Tests:**
 ```bash
 # Run all tests
 make test
@@ -134,6 +135,21 @@ make coverage
 # Run linters
 make lint
 ```
+
+**End-to-End Tests:**
+
+E2E tests deploy a real Kubernetes cluster on BinaryLane and verify CCM functionality:
+
+```bash
+# Via GitHub Actions (recommended)
+# Go to: Actions → End-to-End Tests → Run workflow
+
+# Via local script
+export BINARYLANE_API_TOKEN="your-token"
+./scripts/e2e-test.sh
+```
+
+See [E2E Testing Guide](docs/E2E_TESTING.md) for detailed information.
 
 ### API Client
 

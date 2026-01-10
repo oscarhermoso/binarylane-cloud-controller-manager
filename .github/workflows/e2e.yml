@@ -1,0 +1,405 @@
+name: End-to-End Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: 'Name prefix for the test cluster'
+        required: false
+        default: 'ccm-e2e-test'
+      region:
+        description: 'BinaryLane region to deploy to'
+        required: false
+        default: 'syd'
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+
+env:
+  CLUSTER_NAME: ${{ github.event.inputs.cluster_name || 'ccm-e2e-test' }}
+  REGION: ${{ github.event.inputs.region || 'syd' }}
+  CONTROL_PLANE_SIZE: "std-min"
+  WORKER_SIZE: "std-min"
+  IMAGE: "ubuntu-22.04"
+
+jobs:
+  e2e-test:
+    name: End-to-End Test on BinaryLane
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    permissions:
+      contents: read
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          # Install kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          
+          # Install kubeadm, kubelet
+          sudo apt-get update
+          sudo apt-get install -y apt-transport-https ca-certificates curl
+          
+          # Install helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          
+          # Install jq for JSON parsing
+          sudo apt-get install -y jq
+
+      - name: Build Cloud Controller Manager
+        run: make build
+
+      - name: Build Docker image
+        run: |
+          docker build -t binarylane-ccm:${{ github.sha }} .
+          docker save binarylane-ccm:${{ github.sha }} -o /tmp/ccm-image.tar
+
+      - name: Create BinaryLane servers
+        env:
+          BINARYLANE_API_TOKEN: ${{ secrets.BINARYLANE_API_TOKEN }}
+        run: |
+          # Generate unique cluster name with timestamp
+          TIMESTAMP=$(date +%s)
+          CLUSTER_ID="${CLUSTER_NAME}-${TIMESTAMP}"
+          echo "CLUSTER_ID=${CLUSTER_ID}" >> $GITHUB_ENV
+          
+          echo "Creating BinaryLane servers for cluster: ${CLUSTER_ID}"
+          
+          # Create control plane server
+          CONTROL_PLANE_RESPONSE=$(curl -X POST "https://api.binarylane.com.au/v2/servers" \
+            -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "'"${CLUSTER_ID}-control-plane"'",
+              "region": "'"${REGION}"'",
+              "size": "'"${CONTROL_PLANE_SIZE}"'",
+              "image": "'"${IMAGE}"'",
+              "ssh_keys": [],
+              "backups": false,
+              "ipv6": true,
+              "user_data": "#!/bin/bash\necho \"Cloud-init started\" > /var/log/cloud-init-custom.log"
+            }')
+          
+          CONTROL_PLANE_ID=$(echo $CONTROL_PLANE_RESPONSE | jq -r '.server.id')
+          echo "CONTROL_PLANE_ID=${CONTROL_PLANE_ID}" >> $GITHUB_ENV
+          echo "Created control plane server: ${CONTROL_PLANE_ID}"
+          
+          # Create worker node server
+          WORKER_RESPONSE=$(curl -X POST "https://api.binarylane.com.au/v2/servers" \
+            -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "'"${CLUSTER_ID}-worker-1"'",
+              "region": "'"${REGION}"'",
+              "size": "'"${WORKER_SIZE}"'",
+              "image": "'"${IMAGE}"'",
+              "ssh_keys": [],
+              "backups": false,
+              "ipv6": true,
+              "user_data": "#!/bin/bash\necho \"Cloud-init started\" > /var/log/cloud-init-custom.log"
+            }')
+          
+          WORKER_ID=$(echo $WORKER_RESPONSE | jq -r '.server.id')
+          echo "WORKER_ID=${WORKER_ID}" >> $GITHUB_ENV
+          echo "Created worker server: ${WORKER_ID}"
+
+      - name: Wait for servers to be ready
+        env:
+          BINARYLANE_API_TOKEN: ${{ secrets.BINARYLANE_API_TOKEN }}
+        run: |
+          echo "Waiting for servers to be active..."
+          
+          # Function to wait for server
+          wait_for_server() {
+            local SERVER_ID=$1
+            local MAX_ATTEMPTS=60
+            local ATTEMPT=0
+            
+            while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+              STATUS=$(curl -s "https://api.binarylane.com.au/v2/servers/${SERVER_ID}" \
+                -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}" | jq -r '.server.status')
+              
+              if [ "$STATUS" == "active" ]; then
+                echo "Server ${SERVER_ID} is active"
+                return 0
+              fi
+              
+              echo "Server ${SERVER_ID} status: ${STATUS}, waiting... (attempt $((ATTEMPT+1))/${MAX_ATTEMPTS})"
+              sleep 10
+              ATTEMPT=$((ATTEMPT+1))
+            done
+            
+            echo "Server ${SERVER_ID} failed to become active"
+            return 1
+          }
+          
+          wait_for_server ${CONTROL_PLANE_ID}
+          wait_for_server ${WORKER_ID}
+          
+          # Get server IPs
+          CONTROL_PLANE_IP=$(curl -s "https://api.binarylane.com.au/v2/servers/${CONTROL_PLANE_ID}" \
+            -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}" | jq -r '.server.networks.v4[] | select(.type=="public") | .ip_address' | head -1)
+          echo "CONTROL_PLANE_IP=${CONTROL_PLANE_IP}" >> $GITHUB_ENV
+          
+          WORKER_IP=$(curl -s "https://api.binarylane.com.au/v2/servers/${WORKER_ID}" \
+            -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}" | jq -r '.server.networks.v4[] | select(.type=="public") | .ip_address' | head -1)
+          echo "WORKER_IP=${WORKER_IP}" >> $GITHUB_ENV
+          
+          echo "Control plane IP: ${CONTROL_PLANE_IP}"
+          echo "Worker IP: ${WORKER_IP}"
+
+      - name: Set up SSH access
+        run: |
+          # Generate SSH key for test
+          mkdir -p ~/.ssh
+          ssh-keygen -t rsa -b 4096 -f ~/.ssh/bl_e2e -N "" -C "e2e-test"
+          chmod 600 ~/.ssh/bl_e2e
+          
+          # Configure SSH to skip host key checking for testing
+          cat >> ~/.ssh/config << EOF
+          Host ${CONTROL_PLANE_IP} ${WORKER_IP}
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            IdentityFile ~/.ssh/bl_e2e
+          EOF
+          
+          # Note: In real deployment, SSH keys should be added to server via BinaryLane API
+          # For E2E testing, we'll use password-based access initially and configure SSH
+
+      - name: Install Kubernetes on control plane
+        env:
+          BINARYLANE_API_TOKEN: ${{ secrets.BINARYLANE_API_TOKEN }}
+        run: |
+          # Create install script
+          cat > /tmp/install-k8s.sh << 'EOFSCRIPT'
+          #!/bin/bash
+          set -e
+          
+          # Disable swap
+          swapoff -a
+          sed -i '/ swap / s/^/#/' /etc/fstab
+          
+          # Install container runtime (containerd)
+          apt-get update
+          apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+          
+          # Install containerd
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+          apt-get update
+          apt-get install -y containerd.io
+          
+          # Configure containerd
+          mkdir -p /etc/containerd
+          containerd config default | tee /etc/containerd/config.toml
+          sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+          systemctl restart containerd
+          systemctl enable containerd
+          
+          # Install kubeadm, kubelet, kubectl
+          curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+          echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list
+          apt-get update
+          apt-get install -y kubelet kubeadm kubectl
+          apt-mark hold kubelet kubeadm kubectl
+          
+          # Enable kubelet
+          systemctl enable kubelet
+          
+          echo "Kubernetes prerequisites installed"
+          EOFSCRIPT
+          
+          # Get root password from BinaryLane API
+          ROOT_PASSWORD=$(curl -s "https://api.binarylane.com.au/v2/servers/${CONTROL_PLANE_ID}/actions" \
+            -X POST \
+            -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"type": "password_reset"}' | jq -r '.action.result_data // "password-retrieved"')
+          
+          # Wait for SSH to be available and copy install script
+          echo "Waiting for SSH access on control plane..."
+          for i in {1..30}; do
+            if sshpass -p "${ROOT_PASSWORD}" scp -o StrictHostKeyChecking=no /tmp/install-k8s.sh root@${CONTROL_PLANE_IP}:/tmp/; then
+              break
+            fi
+            echo "Waiting for SSH... attempt $i/30"
+            sleep 10
+          done
+          
+          # Execute install script on control plane
+          echo "Installing Kubernetes on control plane..."
+          sshpass -p "${ROOT_PASSWORD}" ssh root@${CONTROL_PLANE_IP} 'bash /tmp/install-k8s.sh'
+
+      - name: Initialize Kubernetes cluster with external cloud provider
+        run: |
+          # Initialize cluster with external cloud provider
+          ssh root@${CONTROL_PLANE_IP} "kubeadm init --pod-network-cidr=10.244.0.0/16 --cloud-provider=external --apiserver-advertise-address=${CONTROL_PLANE_IP}"
+          
+          # Set up kubeconfig
+          ssh root@${CONTROL_PLANE_IP} 'mkdir -p ~/.kube && cp /etc/kubernetes/admin.conf ~/.kube/config'
+          
+          # Copy kubeconfig locally
+          mkdir -p ~/.kube
+          scp root@${CONTROL_PLANE_IP}:~/.kube/config ~/.kube/config
+          sed -i "s/127.0.0.1/${CONTROL_PLANE_IP}/g" ~/.kube/config
+          
+          # Install CNI (Flannel)
+          kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+          
+          # Wait for control plane to be ready
+          kubectl wait --for=condition=Ready node --all --timeout=300s || true
+
+      - name: Deploy BinaryLane Cloud Controller Manager
+        env:
+          BINARYLANE_API_TOKEN: ${{ secrets.BINARYLANE_API_TOKEN }}
+        run: |
+          # Create cloud config
+          cat > /tmp/cloud-config << EOF
+          [Global]
+          api-url = "https://api.binarylane.com.au"
+          region = "${REGION}"
+          EOF
+          
+          # Create secret with API token
+          kubectl create secret generic binarylane-api-token \
+            --from-literal=api-token="${BINARYLANE_API_TOKEN}" \
+            -n kube-system
+          
+          # Create ConfigMap with cloud config
+          kubectl create configmap binarylane-cloud-config \
+            --from-file=cloud.conf=/tmp/cloud-config \
+            -n kube-system
+          
+          # Load CCM image to control plane
+          docker load -i /tmp/ccm-image.tar
+          docker save binarylane-ccm:${{ github.sha }} | ssh root@${CONTROL_PLANE_IP} 'ctr -n k8s.io images import -'
+          
+          # Deploy CCM using Helm chart
+          helm install binarylane-ccm ./charts/binarylane-cloud-controller-manager \
+            --namespace kube-system \
+            --set image.repository=binarylane-ccm \
+            --set image.tag=${{ github.sha }} \
+            --set image.pullPolicy=Never \
+            --set secret.create=false \
+            --set secret.name=binarylane-api-token \
+            --set config.existingConfigMap=binarylane-cloud-config
+          
+          # Wait for CCM to be ready
+          kubectl wait --for=condition=Available deployment/binarylane-ccm-binarylane-cloud-controller-manager -n kube-system --timeout=300s
+
+      - name: Join worker node to cluster
+        run: |
+          # Install Kubernetes on worker
+          scp /tmp/install-k8s.sh root@${WORKER_IP}:/tmp/
+          ssh root@${WORKER_IP} 'bash /tmp/install-k8s.sh'
+          
+          # Get join command
+          JOIN_COMMAND=$(ssh root@${CONTROL_PLANE_IP} 'kubeadm token create --print-join-command')
+          
+          # Join worker to cluster
+          ssh root@${WORKER_IP} "${JOIN_COMMAND} --cloud-provider=external"
+          
+          # Wait for worker to be ready
+          sleep 30
+          kubectl wait --for=condition=Ready node --all --timeout=300s
+
+      - name: Verify Cloud Controller Manager functionality
+        run: |
+          echo "=== Verifying CCM functionality ==="
+          
+          # Check CCM pods are running
+          echo "1. Checking CCM pod status..."
+          kubectl get pods -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager
+          kubectl logs -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager --tail=50
+          
+          # Check node provider IDs are set
+          echo "2. Verifying node provider IDs..."
+          NODES=$(kubectl get nodes -o json)
+          echo "$NODES" | jq -r '.items[] | "\(.metadata.name): \(.spec.providerID // "NOT SET")"'
+          
+          # Verify all nodes have provider IDs starting with "binarylane://"
+          if echo "$NODES" | jq -e '.items[] | select(.spec.providerID == null or (.spec.providerID | startswith("binarylane://") | not))' > /dev/null; then
+            echo "ERROR: Some nodes don't have correct provider IDs"
+            exit 1
+          fi
+          echo "✓ All nodes have correct provider IDs"
+          
+          # Check node metadata (addresses, labels)
+          echo "3. Verifying node metadata..."
+          kubectl get nodes -o json | jq -r '.items[] | "\(.metadata.name):\n  Addresses: \(.status.addresses | map(.type + "=" + .address) | join(", "))\n  Zone: \(.metadata.labels["topology.kubernetes.io/zone"] // "NOT SET")\n  Region: \(.metadata.labels["topology.kubernetes.io/region"] // "NOT SET")"'
+          
+          # Verify nodes have correct zone and region labels
+          if kubectl get nodes -o json | jq -e '.items[] | select(.metadata.labels["topology.kubernetes.io/zone"] == null or .metadata.labels["topology.kubernetes.io/region"] == null)' > /dev/null; then
+            echo "ERROR: Some nodes don't have zone/region labels"
+            exit 1
+          fi
+          echo "✓ All nodes have correct zone/region labels"
+          
+          # Check node addresses are populated
+          echo "4. Verifying node addresses..."
+          if kubectl get nodes -o json | jq -e '.items[] | select(.status.addresses | length == 0)' > /dev/null; then
+            echo "ERROR: Some nodes don't have addresses"
+            exit 1
+          fi
+          echo "✓ All nodes have addresses populated"
+          
+          # Deploy test workload
+          echo "5. Deploying test workload..."
+          kubectl create deployment nginx --image=nginx:alpine --replicas=2
+          kubectl wait --for=condition=Available deployment/nginx --timeout=300s
+          
+          # Verify pods are scheduled
+          echo "6. Verifying pod scheduling..."
+          kubectl get pods -o wide
+          
+          # Check pod distribution across zones
+          echo "7. Checking pod distribution..."
+          kubectl get pods -o json | jq -r '.items[] | "\(.metadata.name): \(.spec.nodeName)"'
+          
+          echo "=== E2E tests passed! ==="
+
+      - name: Cleanup - Delete BinaryLane servers
+        if: always()
+        env:
+          BINARYLANE_API_TOKEN: ${{ secrets.BINARYLANE_API_TOKEN }}
+        run: |
+          echo "Cleaning up BinaryLane servers..."
+          
+          if [ -n "${CONTROL_PLANE_ID}" ]; then
+            echo "Deleting control plane server: ${CONTROL_PLANE_ID}"
+            curl -X DELETE "https://api.binarylane.com.au/v2/servers/${CONTROL_PLANE_ID}" \
+              -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}"
+          fi
+          
+          if [ -n "${WORKER_ID}" ]; then
+            echo "Deleting worker server: ${WORKER_ID}"
+            curl -X DELETE "https://api.binarylane.com.au/v2/servers/${WORKER_ID}" \
+              -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}"
+          fi
+          
+          echo "Cleanup complete"
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-logs
+          path: |
+            ~/.kube/config
+            /tmp/cloud-config
+          retention-days: 7

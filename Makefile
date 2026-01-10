@@ -1,4 +1,4 @@
-.PHONY: build test clean docker-build fmt vet generate
+.PHONY: build test e2e-test clean docker-build fmt vet generate
 
 BINARY_NAME=binarylane-cloud-controller-manager
 DOCKER_IMAGE=binarylane-cloud-controller-manager
@@ -16,8 +16,16 @@ build:
 	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
 
 test:
-	@echo "Running tests..."
+	@echo "Running unit tests..."
 	go test -v -race -coverprofile=coverage.out ./...
+
+e2e-test:
+	@echo "Running end-to-end tests..."
+	@if [ -z "$$BINARYLANE_API_TOKEN" ]; then \
+		echo "Error: BINARYLANE_API_TOKEN environment variable is not set"; \
+		exit 1; \
+	fi
+	./scripts/e2e-test.sh
 
 coverage: test
 	@echo "Generating coverage report..."
