@@ -14,6 +14,9 @@ imagePullSecrets: []
 nameOverride: ''
 fullnameOverride: ''
 
+# For testing purposes only - creates a dummy secret
+createTestSecret: false
+
 cloudControllerManager:
   # Name of secret containing BinaryLane API token
   # Create: kubectl create secret generic binarylane-api-token --from-literal=api-token="YOUR_TOKEN" -n kube-system

@@ -169,12 +169,8 @@ jobs:
 
       - name: Run chart-testing (install)
         run: |
-          # Create secret for testing
-          kubectl create secret generic binarylane-api-token \
-            --from-literal=api-token=test-token \
-            -n kube-system
-
-          # Install the chart
+          # ct install will create a new namespace and install the chart there
+          # It will automatically pick up values files from charts/*/ci/*.yaml
           ct install --chart-dirs charts --all
 
   e2e-test:
