@@ -1,6 +1,6 @@
 module github.com/oscarhermoso/binarylane-cloud-controller-manager
 
-go 1.24.11
+go 1.23
 
 require (
 	github.com/oapi-codegen/oapi-codegen/v2 v2.5.1

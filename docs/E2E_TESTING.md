@@ -63,60 +63,70 @@ export BINARYLANE_API_TOKEN="your-token-here"
 
 # Optional: Configure test parameters
 export CLUSTER_NAME="my-test-cluster"
-export REGION="syd"
+export REGION="per"  # Perth, Sydney (syd), Melbourne (mel)
+export WORKER_COUNT="2"  # Number of worker nodes
 
-# Run the E2E test
-./scripts/e2e-test.sh
+# Deploy the cluster (idempotent - safe to re-run)
+./scripts/deploy-k8s-cluster.sh
+
+# Clean up when done
+./scripts/delete-cluster.sh
 ```
+
+The deployment script is idempotent and validates cluster health after deployment.
 
 ## What the Tests Do
 
 ### 1. Infrastructure Provisioning
-- Creates 2 BinaryLane servers:
-  - Control plane node (size: std-min)
-  - Worker node (size: std-min)
+- Creates BinaryLane servers (1 control plane + N workers)
+- Uses std-2vcpu size (required for Kubernetes minimum specs)
 - Waits for servers to be in `active` state
-- Configures SSH access
+- Verifies SSH connectivity
 
 ### 2. Kubernetes Installation
-- Installs container runtime (containerd)
-- Installs Kubernetes components (kubeadm, kubelet, kubectl)
-- Initializes cluster with `--cloud-provider=external` flag
-- Installs CNI plugin (Flannel)
-- Joins worker node to cluster
+- Installs container runtime (containerd with systemd cgroup)
+- Installs Kubernetes 1.29.15 (kubeadm, kubelet, kubectl)
+- Configures kubelet with `--cloud-provider=external` flag
+- Initializes cluster with kubeadm
+- Installs Flannel CNI plugin
+- Joins worker nodes to cluster
 
 ### 3. Cloud Controller Manager Deployment
-- Builds CCM from source
-- Creates BinaryLane API credentials secret
-- Creates cloud configuration ConfigMap
-- Deploys CCM using Helm chart
-- Waits for CCM to be ready
+- Builds CCM Docker image from source
+- Imports image to control plane node
+- Deploys CCM using Helm chart with:
+  - BinaryLane API token
+  - Region configuration
+  - Local image (no registry pull)
+- Waits for CCM pods to be ready
+- Sets provider IDs for nodes
 
-### 4. Verification Tests
-- ✅ CCM pods are running
-- ✅ All nodes have provider IDs (format: `binarylane://<server-id>`)
-- ✅ Node metadata is populated:
-  - IP addresses (public, private)
-  - Topology labels (zone, region)
-- ✅ Test workload can be scheduled
-- ✅ Pods distribute across zones
+### 4. Verification & Validation
+- ✅ All nodes are Ready
+- ✅ Provider IDs assigned (format: `binarylane://<server-id>`)
+- ✅ Node addresses populated correctly
+- ✅ CCM pod is Running
+- ✅ Test workloads can be scheduled and run
+- ✅ Full cluster health validation
 
 ### 5. Cleanup
-- Deletes all created BinaryLane servers
-- Removes test artifacts
+- Deletes all BinaryLane servers
+- Removes local kubeconfig
 
 ## Test Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `BINARYLANE_API_TOKEN` | API token for BinaryLane | (required) |
-| `CLUSTER_NAME` | Prefix for cluster resources | `ccm-e2e-test` |
-| `REGION` | BinaryLane region | `syd` |
-| `CONTROL_PLANE_SIZE` | Control plane server size | `std-min` |
-| `WORKER_SIZE` | Worker node server size | `std-min` |
-| `IMAGE` | OS image for servers | `ubuntu-22.04` |
+| Variable               | Description                   | Default          |
+| ---------------------- | ----------------------------- | ---------------- |
+| `BINARYLANE_API_TOKEN` | API token for BinaryLane      | (required)       |
+| `CLUSTER_NAME`         | Prefix for cluster resources  | `k8s-binarylane` |
+| `REGION`               | BinaryLane region             | `per`            |
+| `SERVER_SIZE`          | Server size for all nodes     | `std-2vcpu`      |
+| `CONTROL_PLANE_COUNT`  | Number of control plane nodes | `1`              |
+| `WORKER_COUNT`         | Number of worker nodes        | `2`              |
+| `K8S_VERSION`          | Kubernetes version            | `1.29.15`        |
+| `POD_NETWORK_CIDR`     | Pod network CIDR              | `10.244.0.0/16`  |
 
 ### Available Regions
 
@@ -129,12 +139,18 @@ export REGION="syd"
 
 ⚠️ **Important**: Running E2E tests will incur costs on your BinaryLane account.
 
-- Control plane server: ~$0.01-0.02 per hour (std-min)
-- Worker server: ~$0.01-0.02 per hour (std-min)
-- Total test duration: ~30-45 minutes
-- **Estimated cost per test run**: ~$0.02-0.03
+- std-2vcpu server: ~$0.021 per hour (~$15/month)
+- Default configuration: 3 servers (1 control plane + 2 workers)
+- Total hourly cost: ~$0.063/hour
+- **Estimated cost for 1-hour test**: ~$0.06
+- **Monthly cost if left running**: ~$45
 
-The cleanup step ensures servers are deleted after tests complete or fail.
+**Important**: Always run the cleanup script when done:
+```bash
+./scripts/delete-cluster.sh
+```
+
+The cleanup script deletes all servers to prevent ongoing charges.
 
 ## Troubleshooting
 
@@ -146,8 +162,53 @@ The cleanup step ensures servers are deleted after tests complete or fail.
 - Check API token has correct permissions
 
 **SSH connection failures:**
-- Ensure security groups allow SSH access
-- Verify server passwords are retrieved correctly
+- Wait longer for servers to fully initialize
+- Check that SSH keys are properly configured in BinaryLane account
+- Verify network connectivity to BinaryLane servers
+
+**Kubernetes installation fails:**
+- Ensure servers meet minimum requirements (2 vCPU, 4GB RAM)
+- Check that containerd is running properly
+- Verify kubeadm can access required container registries
+
+**CCM deployment fails:**
+- Verify BINARYLANE_API_TOKEN is set correctly
+- Check that Docker image built successfully
+- Ensure Helm chart is valid (run `helm lint charts/binarylane-cloud-controller-manager`)
+
+**Provider IDs not set:**
+- This is expected on first deployment (nodes existed before CCM)
+- The script automatically sets provider IDs after CCM deployment
+- Run the script again to verify they persist
+
+### Manual Cleanup
+
+If the cleanup script fails, manually delete servers:
+
+```bash
+# List cluster servers
+source .env
+curl -s -H "Authorization: Bearer $BINARYLANE_API_TOKEN" \
+  "https://api.binarylane.com.au/v2/servers?per_page=200" | \
+  jq '.servers[] | select(.name | contains("k8s-binarylane"))'
+
+# Delete each server
+curl -X DELETE -H "Authorization: Bearer $BINARYLANE_API_TOKEN" \
+  "https://api.binarylane.com.au/v2/servers/<server-id>"
+```
+
+### Idempotency
+
+The deployment script is idempotent and can be safely re-run:
+- Existing servers are reused (not recreated)
+- Kubernetes will not be reinitialized if already running
+- CCM will not be reinstalled if already deployed
+- Provider IDs are set/updated as needed
+
+This makes it safe to:
+- Resume interrupted deployments
+- Update CCM configuration
+- Verify cluster state
 - Check network connectivity to BinaryLane servers
 
 **Kubernetes installation fails:**

@@ -3,8 +3,8 @@ package cloud
 import (
 	"context"
 
-	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/apimachinery/pkg/types"
+	cloudprovider "k8s.io/cloud-provider"
 )
 
 type zones struct {

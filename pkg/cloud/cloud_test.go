@@ -51,7 +51,7 @@ func TestInstanceExists(t *testing.T) {
 
 	inst := &instancesV2{
 		client: &binarylane.BinaryLaneClient{},
-		region: "syd",
+		region: "per",
 	}
 
 	// Override the client's methods - in real tests we'd use dependency injection

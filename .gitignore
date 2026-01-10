@@ -41,3 +41,7 @@ Thumbs.db
 charts/*/charts/
 .cr-release-packages/
 .cr-index/
+
+.ssh/
+
+.env

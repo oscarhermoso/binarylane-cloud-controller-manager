@@ -30,7 +30,7 @@ helm repo update
 helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
   --namespace kube-system \
   --set cloudControllerManager.apiToken="YOUR_API_TOKEN" \
-  --set cloudControllerManager.region="syd"
+  --set cloudControllerManager.region="per"
 ```
 
 For more Helm configuration options, see the [Helm chart documentation](charts/binarylane-cloud-controller-manager/README.md).
@@ -144,10 +144,19 @@ E2E tests deploy a real Kubernetes cluster on BinaryLane and verify CCM function
 # Via GitHub Actions (recommended)
 # Go to: Actions → End-to-End Tests → Run workflow
 
-# Via local script
+# Via local script (deploys complete K8s cluster with CCM)
 export BINARYLANE_API_TOKEN="your-token"
-./scripts/e2e-test.sh
+./scripts/deploy-k8s-cluster.sh
+
+# Clean up after testing
+./scripts/delete-cluster.sh
 ```
+
+The deployment script is idempotent and can be safely re-run. It will:
+- Create BinaryLane servers (or reuse existing ones)
+- Install Kubernetes with kubeadm
+- Deploy the BinaryLane Cloud Controller Manager
+- Validate cluster health
 
 See [E2E Testing Guide](docs/E2E_TESTING.md) for detailed information.
 

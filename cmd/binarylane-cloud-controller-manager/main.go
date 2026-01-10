@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/oscarhermoso/binarylane-cloud-controller-manager/pkg/cloud"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -22,13 +20,12 @@ import (
 const (
 	// binaryLaneAccessTokenEnv is the environment variable for the BinaryLane API token
 	binaryLaneAccessTokenEnv = "BINARYLANE_ACCESS_TOKEN"
-	
+
 	// binaryLaneRegionEnv is the environment variable for the BinaryLane region
 	binaryLaneRegionEnv = "BINARYLANE_REGION"
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
 
 	opts, err := options.NewCloudControllerManagerOptions()
 	if err != nil {
@@ -36,11 +33,11 @@ func main() {
 	}
 
 	controllerInitializers := app.DefaultInitFuncConstructors
-	
+
 	// Add BinaryLane-specific flags
 	fss := cliflag.NamedFlagSets{}
 	featureGates := make(map[string]string)
-	
+
 	command := app.NewCloudControllerManagerCommand(
 		opts,
 		cloudInitializer,
