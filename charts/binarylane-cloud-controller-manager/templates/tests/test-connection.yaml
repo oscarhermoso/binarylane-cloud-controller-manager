@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "binarylane-cloud-controller-manager.fullname" . }}-test-connection"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "binarylane-cloud-controller-manager.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ include "binarylane-cloud-controller-manager.serviceAccountName" . }}
+  containers:
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Testing BinaryLane Cloud Controller Manager deployment..."
+          
+          # Check if deployment exists
+          kubectl get deployment {{ include "binarylane-cloud-controller-manager.fullname" . }} -n {{ .Release.Namespace }}
+          
+          # Check if deployment is ready
+          kubectl wait --for=condition=available --timeout=60s \
+            deployment/{{ include "binarylane-cloud-controller-manager.fullname" . }} -n {{ .Release.Namespace }}
+          
+          # Check if pods are running
+          kubectl get pods -l app.kubernetes.io/name={{ include "binarylane-cloud-controller-manager.name" . }} -n {{ .Release.Namespace }}
+          
+          echo "All tests passed!"
+  restartPolicy: Never

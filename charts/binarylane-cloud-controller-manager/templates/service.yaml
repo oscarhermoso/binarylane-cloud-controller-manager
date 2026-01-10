@@ -1,0 +1,18 @@
+{{- if .Values.service.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "binarylane-cloud-controller-manager.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "binarylane-cloud-controller-manager.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 10258
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "binarylane-cloud-controller-manager.selectorLabels" . | nindent 4 }}
+{{- end }}

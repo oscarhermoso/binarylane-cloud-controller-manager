@@ -1,0 +1,17 @@
+apiVersion: v2
+name: binarylane-cloud-controller-manager
+description: Kubernetes Cloud Controller Manager for BinaryLane
+type: application
+version: 0.1.0
+appVersion: '0.1.0'
+keywords:
+  - kubernetes
+  - cloud-controller-manager
+  - binarylane
+  - ccm
+home: https://github.com/oscarhermoso/binarylane-cloud-controller-manager
+sources:
+  - https://github.com/oscarhermoso/binarylane-cloud-controller-manager
+maintainers:
+  - name: Oscar Hermoso
+    url: https://github.com/oscarhermoso

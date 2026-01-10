@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+.github
+
+# Build artifacts
+bin/
+*.tar
+*.tar.gz
+
+# Documentation
+*.md
+docs/
+
+# Scripts
+scripts/
+
+# Tests
+*_test.go
+**/*_test.go
+
+# Deployment configs
+deploy/
+charts/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.*
+
+# SSH keys
+.ssh/
+
+# Kubernetes configs
+*.kubeconfig
+config-*
+.kube/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OpenAPI
+openapi.json
+*.cfg.yml
+
+# Tools
+tools/
+
+# Makefile
+Makefile
+
+# Chart testing
+ct.yaml
