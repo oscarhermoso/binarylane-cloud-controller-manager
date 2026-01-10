@@ -62,8 +62,8 @@ Note: Update the `BINARYLANE_REGION` environment variable in `deployment.yaml` t
 **API Client:**
 
 The BinaryLane API client is automatically generated from the OpenAPI specification and committed to the repository. The generated files are:
-- `pkg/binarylane/client_gen.go` - HTTP client implementation
-- `pkg/binarylane/types_gen.go` - API type definitions
+- `internal/binarylane/client_gen.go` - HTTP client implementation
+- `internal/binarylane/types_gen.go` - API type definitions
 - `openapi.json` - BinaryLane OpenAPI specification
 
 To regenerate the client (only needed when updating to a new API version):
@@ -110,7 +110,7 @@ Nodes will be automatically configured with:
 ```
 ├── cmd/
 │   └── binarylane-cloud-controller-manager/  # Main application
-├── pkg/
+├── internal/
 │   ├── binarylane/                            # BinaryLane API client
 │   └── cloud/                                 # Cloud provider implementation
 ├── deploy/
@@ -155,7 +155,7 @@ See [E2E Testing Guide](docs/E2E_TESTING.md) for detailed information.
 
 ### API Client
 
-The BinaryLane API client is located in `pkg/binarylane/` and provides methods for:
+The BinaryLane API client is located in `internal/binarylane/` and provides methods for:
 - Server management
 - Load balancer management
 - Network configuration

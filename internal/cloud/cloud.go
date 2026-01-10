@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/oscarhermoso/binarylane-cloud-controller-manager/pkg/binarylane"
+	"github.com/oscarhermoso/binarylane-cloud-controller-manager/internal/binarylane"
 	cloudprovider "k8s.io/cloud-provider"
 )
 

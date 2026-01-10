@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/oscarhermoso/binarylane-cloud-controller-manager/pkg/binarylane"
+	"github.com/oscarhermoso/binarylane-cloud-controller-manager/internal/binarylane"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

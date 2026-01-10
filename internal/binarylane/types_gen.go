@@ -2874,7 +2874,7 @@ type SizeOptions struct {
 	// TransferCostPerAdditionalGigabyte The additional cost per GB per month for additional included transfer.
 	TransferCostPerAdditionalGigabyte float64 `json:"transfer_cost_per_additional_gigabyte"`
 
-	// TransferMax The maximum transfer in TB permitted for this size. If this is the same as Size.Transfer no additional transfer is supported.
+	// TransferMax The maximum transfer in TB permitted for this size.
 	TransferMax float64 `json:"transfer_max"`
 
 	// WeeklyBackups The number of weekly backups included in the base size cost.

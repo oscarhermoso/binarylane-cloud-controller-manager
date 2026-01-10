@@ -13113,7 +13113,7 @@
           },
           "transfer_max": {
             "type": "number",
-            "description": "The maximum transfer in TB permitted for this size. If this is the same as Size.Transfer no additional transfer is supported.",
+            "description": "The maximum transfer in TB permitted for this size.",
             "format": "double"
           },
           "transfer_cost_per_additional_gigabyte": {

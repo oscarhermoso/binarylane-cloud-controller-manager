@@ -15,14 +15,14 @@ The BinaryLane Cloud Controller Manager is a Kubernetes controller that enables 
 ### Components
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│         Kubernetes Cloud Controller Manager             │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   Instances  │  │LoadBalancers │  │    Zones     │  │
-│  │  Controller  │  │  Controller  │  │  Controller  │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
+┌──────────────────────────────────────────────────────────┐
+│         Kubernetes Cloud Controller Manager              │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐   │
+│  │   Instances  │  │ LoadBalancers │  │    Zones     │   │
+│  │  Controller  │  │  Controller   │  │  Controller  │   │
+│  └──────────────┘  └───────────────┘  └──────────────┘   │
 │         │                  │                  │          │
 │         └──────────────────┴──────────────────┘          │
 │                            │                             │
@@ -44,13 +44,13 @@ The BinaryLane Cloud Controller Manager is a Kubernetes controller that enables 
 ### Package Structure
 
 - **`cmd/binarylane-cloud-controller-manager/`**: Main application entry point
-- **`pkg/binarylane/`**: BinaryLane API client library
-- **`pkg/cloud/`**: Kubernetes cloud provider interface implementation
+- **`internal/binarylane/`**: BinaryLane API client library
+- **`internal/cloud/`**: Kubernetes cloud provider interface implementation
 - **`deploy/kubernetes/`**: Kubernetes deployment manifests
 
 ## Implementation Details
 
-### BinaryLane API Client (`pkg/binarylane/`)
+### BinaryLane API Client (`internal/binarylane/`)
 
 The API client provides a Go interface to the BinaryLane API v2:
 
@@ -66,7 +66,11 @@ The API client provides a Go interface to the BinaryLane API v2:
 GetServer(ctx, serverID) (*Server, error)
 ListServers(ctx) ([]Server, error)
 GetServerByName(ctx, name) (*Server, error)
+```
 
+**Possibly implemented in the future**
+
+```go
 // Load Balancer Management
 CreateLoadBalancer(ctx, req) (*LoadBalancer, error)
 GetLoadBalancer(ctx, lbID) (*LoadBalancer, error)
@@ -76,7 +80,7 @@ AddServersToLoadBalancer(ctx, lbID, serverIDs) error
 RemoveServersFromLoadBalancer(ctx, lbID, serverIDs) error
 ```
 
-### Instances Controller (`pkg/cloud/instances.go`)
+### Instances Controller (`internal/cloud/instances.go`)
 
 Implements the `cloudprovider.InstancesV2` interface for node management.
 
@@ -96,7 +100,7 @@ Implements the `cloudprovider.InstancesV2` interface for node management.
    - Instance type
    - Region/zone information
 
-### Load Balancer Controller (`pkg/cloud/loadbalancers.go`)
+### TODO: Load Balancer Controller (`internal/cloud/loadbalancers.go`)
 
 Implements the `cloudprovider.LoadBalancer` interface for service load balancer provisioning.
 
@@ -120,7 +124,7 @@ Implements the `cloudprovider.LoadBalancer` interface for service load balancer 
 - `service.beta.kubernetes.io/binarylane-loadbalancer-health-check-protocol`: Health check protocol
 - `service.beta.kubernetes.io/binarylane-loadbalancer-health-check-path`: Health check path
 
-### Zones Controller (`pkg/cloud/zones.go`)
+### Zones Controller (`internal/cloud/zones.go`)
 
 Implements the `cloudprovider.Zones` interface for topology awareness.
 
@@ -150,7 +154,7 @@ Implements the `cloudprovider.Zones` interface for topology awareness.
 7. Node becomes Ready
 ```
 
-### Load Balancer Creation
+### TODO: Load Balancer Creation
 
 ```
 1. User creates Service with type: LoadBalancer
@@ -166,7 +170,7 @@ Implements the `cloudprovider.Zones` interface for topology awareness.
 7. Traffic flows: Internet → Load Balancer → Service → Pods
 ```
 
-### Load Balancer Updates
+### TODO: Load Balancer Updates
 
 ```
 1. Service or nodes change
@@ -184,16 +188,16 @@ Implements the `cloudprovider.Zones` interface for topology awareness.
 
 ### BinaryLane API → Kubernetes Concepts
 
-| BinaryLane Concept | Kubernetes Concept | Mapping |
-|-------------------|-------------------|---------|
-| Server | Node | Server ID → Provider ID |
-| Server Region | Zone | Region slug → Zone label |
-| Server IPv4 | Node Address | Primary IP → External address |
-| Server VPC IPv4 | Node Address | VPC IP → Internal address |
-| Load Balancer | Service (LoadBalancer) | LB name ← Service namespace/name |
-| Forwarding Rule | Service Port | Port mapping |
-| Health Check | Service annotation | Health check config |
-| Load Balancer Server | Node | Backend pool membership |
+| BinaryLane Concept   | Kubernetes Concept     | Mapping                          |
+| -------------------- | ---------------------- | -------------------------------- |
+| Server               | Node                   | Server ID → Provider ID          |
+| Server Region        | Zone                   | Region slug → Zone label         |
+| Server IPv4          | Node Address           | Primary IP → External address    |
+| Server VPC IPv4      | Node Address           | VPC IP → Internal address        |
+| Load Balancer        | Service (LoadBalancer) | LB name ← Service namespace/name |
+| Forwarding Rule      | Service Port           | Port mapping                     |
+| Health Check         | Service annotation     | Health check config              |
+| Load Balancer Server | Node                   | Backend pool membership          |
 
 ## Configuration
 
@@ -213,13 +217,13 @@ Implements the `cloudprovider.Zones` interface for topology awareness.
 
 ### Unit Tests
 
-1. **API Client Tests** (`pkg/binarylane/client_test.go`)
+1. **API Client Tests** (`internal/binarylane/client_test.go`)
    - Mock HTTP responses
    - Test all API methods
    - Test error handling
    - Test JSON parsing
 
-2. **Cloud Provider Tests** (`pkg/cloud/cloud_test.go`)
+2. **Cloud Provider Tests** (`internal/cloud/cloud_test.go`)
    - Mock API client
    - Test interface implementations
    - Test error conditions

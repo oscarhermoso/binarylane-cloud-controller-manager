@@ -9,7 +9,7 @@ RUN go mod download
 
 # Copy source code
 COPY cmd/ cmd/
-COPY pkg/ pkg/
+COPY internal/ internal/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o binarylane-cloud-controller-manager ./cmd/binarylane-cloud-controller-manager
