@@ -24,7 +24,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.25"
           cache: true
 
       - name: Install dependencies
@@ -50,8 +50,11 @@ jobs:
             exit 1
           fi
 
-      - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Run tests with race detector
+        run: go test -v -race ./...
+
+      - name: Run tests with coverage
+        run: go test -v -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -152,7 +155,7 @@ jobs:
       - name: Template Helm chart
         run: |
           helm template test-release charts/binarylane-cloud-controller-manager \
-            --set cloudControllerManager.secret.name=binarylane-api-token \
+            --set cloudControllerManager.secret.name="binarylane-api-token" \
             --set cloudControllerManager.region=syd
 
       - name: Install chart-testing
