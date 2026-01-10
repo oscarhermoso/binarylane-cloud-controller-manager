@@ -7,6 +7,8 @@ metadata:
     {{- include "binarylane-cloud-controller-manager.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "binarylane-cloud-controller-manager.selectorLabels" . | nindent 6 }}

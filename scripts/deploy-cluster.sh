@@ -457,9 +457,9 @@ deploy_cloud_controller_manager() {
         log_info "Installing CCM with Helm..."
         helm install binarylane-ccm charts/binarylane-cloud-controller-manager \
             --namespace kube-system \
-            --set cloudControllerManager.existingSecret=binarylane-api-token \
+            --set cloudControllerManager.secret.name=binarylane-api-token \
             --set cloudControllerManager.region=$REGION \
-            --set image.repository=docker.io/library/binarylane-cloud-controller-manager \
+            --set image.repository=ghcr.io/oscarhermoso/binarylane-cloud-controller-manager \
             --set image.tag=local \
             --set image.pullPolicy=Never
 

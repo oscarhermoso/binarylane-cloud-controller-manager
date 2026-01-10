@@ -152,7 +152,7 @@ jobs:
       - name: Template Helm chart
         run: |
           helm template test-release charts/binarylane-cloud-controller-manager \
-            --set cloudControllerManager.apiToken=test-token \
+            --set cloudControllerManager.secret.name=binarylane-api-token \
             --set cloudControllerManager.region=syd
 
       - name: Install chart-testing

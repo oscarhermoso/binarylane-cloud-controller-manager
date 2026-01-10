@@ -1,7 +1,7 @@
 # Example values for deploying BinaryLane Cloud Controller Manager
 # This is a YAML-formatted file.
 
-# Number of replicas (typically 1 for cloud controller manager)
+# Number of replicas (typically 1 for cloud controller manager, unless high availability is needed)
 replicaCount: 1
 
 # Container image configuration
@@ -66,15 +66,23 @@ nodeSelector:
 
 # Tolerations - allow scheduling on control plane nodes
 tolerations:
-  - key: node-role.kubernetes.io/control-plane
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
     operator: Exists
-    effect: NoSchedule
-  - key: node-role.kubernetes.io/master
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
     operator: Exists
-    effect: NoSchedule
-  - key: node.cloudprovider.kubernetes.io/uninitialized
+    tolerationSeconds: 120
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
     operator: Exists
-    effect: NoSchedule
+    tolerationSeconds: 120
+  - effect: NoSchedule
+    key: node.cloudprovider.kubernetes.io/uninitialized
+    operator: Exists
+  - effect: NoSchedule
+    key: node.kubernetes.io/not-ready
+    operator: Exists
 
 # Affinity rules (empty by default)
 affinity: {}

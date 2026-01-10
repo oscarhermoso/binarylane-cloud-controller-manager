@@ -6,8 +6,10 @@ metadata:
   labels:
     app: binarylane-cloud-controller-manager
 spec:
-  replicas: 1
+  replicas: 1 # Adjust the number of replicas as needed
   revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: binarylane-cloud-controller-manager
@@ -19,6 +21,13 @@ spec:
       dnsPolicy: Default
       hostNetwork: true
       serviceAccountName: cloud-controller-manager
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: binarylane-cloud-controller-manager
       tolerations:
         - key: 'node.cloudprovider.kubernetes.io/uninitialized'
           value: 'true'
@@ -29,10 +38,21 @@ spec:
           effect: NoSchedule
         - key: 'node-role.kubernetes.io/control-plane'
           effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 120
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 120
       containers:
         - name: binarylane-cloud-controller-manager
-          image: binarylane-cloud-controller-manager:latest
-          imagePullPolicy: Always
+          image: ghcr.io/oscarhermoso/binarylane-cloud-controller-manager:latest
+          imagePullPolicy: IfNotPresent
           command:
             - '/binarylane-cloud-controller-manager'
             - '--cloud-provider=binarylane'
@@ -45,8 +65,8 @@ spec:
             - name: BINARYLANE_ACCESS_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: binarylane-cloud-controller-manager
-                  key: access-token
+                  name: binarylane-api-token
+                  key: api-token
             - name: BINARYLANE_REGION
               value: 'per' # Change to your region
           resources:

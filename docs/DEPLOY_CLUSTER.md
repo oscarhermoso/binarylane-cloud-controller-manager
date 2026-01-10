@@ -138,7 +138,7 @@ If the automated deployment fails, you can manually:
    ```bash
    helm install binarylane-ccm charts/binarylane-cloud-controller-manager \
      --namespace kube-system \
-     --set cloudControllerManager.apiToken=$BINARYLANE_API_TOKEN \
+     --set cloudControllerManager.secret.name=$BINARYLANE_API_TOKEN \
      --set cloudControllerManager.region=syd
    ```
 

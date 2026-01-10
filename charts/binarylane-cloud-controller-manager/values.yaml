@@ -67,18 +67,32 @@ nodeSelector:
 
 # Tolerations for pod assignment
 tolerations:
-  - key: node-role.kubernetes.io/control-plane
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
     operator: Exists
-    effect: NoSchedule
-  - key: node-role.kubernetes.io/master
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
     operator: Exists
-    effect: NoSchedule
-  - key: node.cloudprovider.kubernetes.io/uninitialized
+    tolerationSeconds: 120
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
     operator: Exists
-    effect: NoSchedule
+    tolerationSeconds: 120
+  - effect: NoSchedule
+    key: node.cloudprovider.kubernetes.io/uninitialized
+    operator: Exists
+  - effect: NoSchedule
+    key: node.kubernetes.io/not-ready
+    operator: Exists
 
 # Affinity for pod assignment
-affinity: {}
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: binarylane-cloud-controller-manager
 
 # Priority class name
 priorityClassName: system-cluster-critical
@@ -96,22 +110,26 @@ service:
 verbosity: 2
 
 # Extra arguments to pass to the cloud controller manager
-extraArgs: []
+extraArgs:
+  []
   # - --configure-cloud-routes=false
 
 # Extra environment variables
-extraEnv: []
+extraEnv:
+  []
   # - name: HTTP_PROXY
   #   value: "http://proxy.example.com:8080"
 
 # Extra volumes
-extraVolumes: []
+extraVolumes:
+  []
   # - name: ca-certs
   #   hostPath:
   #     path: /etc/ssl/certs
 
 # Extra volume mounts
-extraVolumeMounts: []
+extraVolumeMounts:
+  []
   # - name: ca-certs
   #   mountPath: /etc/ssl/certs
   #   readOnly: true
