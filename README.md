@@ -19,14 +19,12 @@ This cloud controller manager implements the following Kubernetes cloud provider
 - BinaryLane API token with appropriate permissions
 - Kubernetes 1.24+
 
-### Quick Start with Helm (Recommended)
+### Quick Start with Helm
 
 ```bash
-# Add the Helm repository
 helm repo add binarylane https://oscarhermoso.github.io/binarylane-cloud-controller-manager
 helm repo update
 
-# Install the chart
 helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
   --namespace kube-system \
   --set cloudControllerManager.apiToken="YOUR_API_TOKEN" \
@@ -141,14 +139,9 @@ make lint
 E2E tests deploy a real Kubernetes cluster on BinaryLane and verify CCM functionality:
 
 ```bash
-# Via GitHub Actions (recommended)
-# Go to: Actions → End-to-End Tests → Run workflow
-
-# Via local script (deploys complete K8s cluster with CCM)
 export BINARYLANE_API_TOKEN="your-token"
-./scripts/deploy-k8s-cluster.sh
+./scripts/deploy-cluster.sh
 
-# Clean up after testing
 ./scripts/delete-cluster.sh
 ```
 

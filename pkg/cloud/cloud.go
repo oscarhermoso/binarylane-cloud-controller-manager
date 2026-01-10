@@ -39,7 +39,6 @@ func NewCloud(token, region string) (cloudprovider.Interface, error) {
 // Initialize provides the cloud with a kubernetes client builder and may spawn goroutines
 // to perform housekeeping or run custom controllers specific to the cloud provider.
 func (c *Cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, stop <-chan struct{}) {
-	// Nothing to initialize
 }
 
 // LoadBalancer returns a load balancer interface. Also returns true if the interface is supported, false otherwise.

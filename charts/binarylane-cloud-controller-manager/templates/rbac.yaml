@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: { { include "binarylane-cloud-controller-manager.fullname" . } }
+  name: {{ include "binarylane-cloud-controller-manager.fullname" . }}
   labels:
-    { { - include "binarylane-cloud-controller-manager.labels" . | nindent 4 } }
+    {{- include "binarylane-cloud-controller-manager.labels" . | nindent 4 }}
 rules:
   - apiGroups:
       - ''
@@ -110,15 +110,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: { { include "binarylane-cloud-controller-manager.fullname" . } }
+  name: {{ include "binarylane-cloud-controller-manager.fullname" . }}
   labels:
-    { { - include "binarylane-cloud-controller-manager.labels" . | nindent 4 } }
+    {{- include "binarylane-cloud-controller-manager.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: { { include "binarylane-cloud-controller-manager.fullname" . } }
+  name: {{ include "binarylane-cloud-controller-manager.fullname" . }}
 subjects:
   - kind: ServiceAccount
     name:
-      { { include "binarylane-cloud-controller-manager.serviceAccountName" . } }
-    namespace: { { .Release.Namespace } }
+      {{ include "binarylane-cloud-controller-manager.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

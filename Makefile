@@ -21,11 +21,15 @@ test:
 
 e2e-test:
 	@echo "Running end-to-end tests..."
-	@if [ -z "$$BINARYLANE_API_TOKEN" ]; then \
-		echo "Error: BINARYLANE_API_TOKEN environment variable is not set"; \
+	@if [ -f .env ]; then \
+		echo "Loading environment from .env..."; \
+		export $$(cat .env | grep -v '^#' | xargs) && ./scripts/e2e-test.sh; \
+	elif [ -z "$$BINARYLANE_API_TOKEN" ]; then \
+		echo "Error: BINARYLANE_API_TOKEN not set and .env file not found"; \
 		exit 1; \
+	else \
+		./scripts/e2e-test.sh; \
 	fi
-	./scripts/e2e-test.sh
 
 coverage: test
 	@echo "Generating coverage report..."

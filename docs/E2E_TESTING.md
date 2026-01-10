@@ -58,22 +58,17 @@ The E2E tests can be triggered manually or run on a schedule:
 ### Via Local Script
 
 ```bash
-# Export your BinaryLane API token
 export BINARYLANE_API_TOKEN="your-token-here"
 
 # Optional: Configure test parameters
 export CLUSTER_NAME="my-test-cluster"
-export REGION="per"  # Perth, Sydney (syd), Melbourne (mel)
-export WORKER_COUNT="2"  # Number of worker nodes
+export REGION="per"
+export WORKER_COUNT="2"
 
-# Deploy the cluster (idempotent - safe to re-run)
-./scripts/deploy-k8s-cluster.sh
+./scripts/deploy-cluster.sh
 
-# Clean up when done
 ./scripts/delete-cluster.sh
 ```
-
-The deployment script is idempotent and validates cluster health after deployment.
 
 ## What the Tests Do
 

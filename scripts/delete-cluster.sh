@@ -1,17 +1,13 @@
 #!/bin/bash
-# Delete BinaryLane Kubernetes Cluster
-# This script deletes all servers created by deploy-cluster.sh
-
 set -e
 
-# Load environment variables
 if [ -f "$(dirname "$0")/../.env" ]; then
     source "$(dirname "$0")/../.env"
 fi
 
-CLUSTER_NAME="${CLUSTER_NAME:-k8s-binarylane}"
+CLUSTER_NAME="${CLUSTER_NAME:-binarylane-ccm}"
 
-# Colors
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -31,7 +27,6 @@ echo "║  Delete BinaryLane Kubernetes Cluster                         ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# List all servers matching the cluster name
 log_info "Finding servers for cluster: $CLUSTER_NAME"
 
 SERVERS=$(curl -s -X GET "https://api.binarylane.com.au/v2/servers" \

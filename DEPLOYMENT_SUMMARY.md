@@ -6,11 +6,11 @@
 All deployment scripts have been consolidated into a single, comprehensive script:
 
 **New Script:**
-- `scripts/deploy-k8s-cluster.sh` - Complete, idempotent deployment script
+- `scripts/deploy-cluster.sh` - Complete, idempotent deployment script
 
 **Removed Scripts:**
 - `scripts/continue-deployment.sh` - Functionality merged into main script
-- `scripts/deploy-cluster.sh` - Replaced by deploy-k8s-cluster.sh
+- `scripts/deploy-cluster.sh` - Replaced by deploy-cluster.sh
 - `scripts/deploy-simple.py` - No longer needed
 - `scripts/install-k8s-ccm.sh` - Integrated into main script
 - `scripts/install-k8s-now.sh` - Integrated into main script
@@ -20,7 +20,7 @@ All deployment scripts have been consolidated into a single, comprehensive scrip
 - `scripts/e2e-test.sh` - E2E test runner (unchanged)
 - `scripts/fetch-openapi.sh` - API client generator (unchanged)
 
-## New deploy-k8s-cluster.sh Features
+## New deploy-cluster.sh Features
 
 ### Idempotency
 The script can be safely re-run multiple times:
@@ -40,7 +40,7 @@ Single script handles everything:
 ### Configuration
 All settings configurable via environment variables:
 ```bash
-export CLUSTER_NAME="k8s-binarylane"     # Cluster name prefix
+export CLUSTER_NAME="binarylane-ccm"     # Cluster name prefix
 export REGION="per"                       # BinaryLane region
 export SERVER_SIZE="std-2vcpu"            # Server size
 export CONTROL_PLANE_COUNT="1"            # Number of control planes
@@ -70,7 +70,7 @@ export REGION="per"        # Perth
 export WORKER_COUNT="2"    # 2 workers
 
 # Deploy
-./scripts/deploy-k8s-cluster.sh
+./scripts/deploy-cluster.sh
 ```
 
 ### Use Cluster

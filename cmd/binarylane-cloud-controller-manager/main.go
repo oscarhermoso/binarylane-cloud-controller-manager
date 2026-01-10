@@ -18,23 +18,17 @@ import (
 )
 
 const (
-	// binaryLaneAccessTokenEnv is the environment variable for the BinaryLane API token
 	binaryLaneAccessTokenEnv = "BINARYLANE_ACCESS_TOKEN"
-
-	// binaryLaneRegionEnv is the environment variable for the BinaryLane region
-	binaryLaneRegionEnv = "BINARYLANE_REGION"
+	binaryLaneRegionEnv      = "BINARYLANE_REGION"
 )
 
 func main() {
-
 	opts, err := options.NewCloudControllerManagerOptions()
 	if err != nil {
 		klog.Fatalf("unable to initialize command options: %v", err)
 	}
 
 	controllerInitializers := app.DefaultInitFuncConstructors
-
-	// Add BinaryLane-specific flags
 	fss := cliflag.NamedFlagSets{}
 	featureGates := make(map[string]string)
 
@@ -59,7 +53,6 @@ func main() {
 func cloudInitializer(config *config.CompletedConfig) cloudprovider.Interface {
 	cloudConfig := config.ComponentConfig.KubeCloudShared.CloudProvider
 
-	// Get BinaryLane credentials from environment
 	token := os.Getenv(binaryLaneAccessTokenEnv)
 	if token == "" {
 		klog.Fatalf("%s environment variable is required", binaryLaneAccessTokenEnv)
@@ -71,13 +64,11 @@ func cloudInitializer(config *config.CompletedConfig) cloudprovider.Interface {
 		region = "default"
 	}
 
-	// Initialize BinaryLane cloud provider
 	cloudProvider, err := cloud.NewCloud(token, region)
 	if err != nil {
 		klog.Fatalf("failed to initialize BinaryLane cloud provider: %v", err)
 	}
 
-	// Perform cloud provider initialization
 	cloudProvider.Initialize(config.ClientBuilder, wait.NeverStop)
 
 	klog.Infof("BinaryLane cloud controller manager initialized (provider: %s, region: %s)",

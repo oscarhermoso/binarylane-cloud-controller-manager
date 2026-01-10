@@ -1,15 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# BinaryLane Kubernetes Cluster Deployment Script
-# This script deploys a complete Kubernetes cluster with the BinaryLane Cloud Controller Manager
-# It is idempotent and can be safely re-run
-
-#=============================================================================
-# Configuration
-#=============================================================================
-
-CLUSTER_NAME="${CLUSTER_NAME:-k8s-binarylane}"
+CLUSTER_NAME="${CLUSTER_NAME:-binarylane-ccm}"
 REGION="${REGION:-per}"
 SERVER_SIZE="${SERVER_SIZE:-std-2vcpu}"
 CONTROL_PLANE_COUNT="${CONTROL_PLANE_COUNT:-1}"
@@ -19,12 +11,11 @@ POD_NETWORK_CIDR="${POD_NETWORK_CIDR:-10.244.0.0/16}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-.ssh/binarylane-k8s}"
 SSH_KEY_NAME="binarylane-k8s-cluster"
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 #=============================================================================
 # Helper Functions
@@ -45,10 +36,6 @@ log_warning() {
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
-
-#=============================================================================
-# Environment Validation
-#=============================================================================
 
 validate_environment() {
     log_info "Validating environment..."
@@ -74,10 +61,6 @@ validate_environment() {
 
     log_success "Environment validated"
 }
-
-#=============================================================================
-# SSH Key Management
-#=============================================================================
 
 generate_and_upload_ssh_key() {
     log_info "Setting up SSH key for cluster..."
@@ -112,10 +95,6 @@ generate_and_upload_ssh_key() {
         log_success "SSH key uploaded (ID: $SSH_KEY_ID)"
     fi
 }
-
-#=============================================================================
-# BinaryLane API Functions
-#=============================================================================
 
 api_call() {
     local method="$1"
@@ -163,10 +142,6 @@ wait_for_server_ready() {
     log_error "Server $server_id did not become ready in time"
     return 1
 }
-
-#=============================================================================
-# Server Management
-#=============================================================================
 
 create_server() {
     local name="$1"
@@ -294,10 +269,6 @@ get_or_create_servers() {
     log_success "All servers ready"
 }
 
-#=============================================================================
-# SSH Configuration
-#=============================================================================
-
 wait_for_ssh() {
     local ip="$1"
     local hostname="${2:-server}"
@@ -324,10 +295,6 @@ wait_for_ssh() {
     log_error "  3. Security groups allow SSH access"
     return 1
 }
-
-#=============================================================================
-# Kubernetes Installation
-#=============================================================================
 
 install_kubernetes_prerequisites() {
     local ip="$1"
@@ -375,7 +342,7 @@ systemctl enable containerd
 # Install kubeadm, kubelet, kubectl
 apt-get install -y apt-transport-https ca-certificates curl gpg
 mkdir -p /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --batch --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' > /etc/apt/sources.list.d/kubernetes.list
 apt-get update
 apt-get install -y kubelet=1.29.15-1.1 kubeadm=1.29.15-1.1 kubectl=1.29.15-1.1
@@ -459,10 +426,6 @@ EOF
     log_success "All worker nodes joined and ready"
 }
 
-#=============================================================================
-# CCM Deployment
-#=============================================================================
-
 deploy_cloud_controller_manager() {
     log_info "Deploying BinaryLane Cloud Controller Manager..."
 
@@ -515,10 +478,6 @@ deploy_cloud_controller_manager() {
 
     log_success "Provider IDs set"
 }
-
-#=============================================================================
-# Validation
-#=============================================================================
 
 validate_cluster() {
     log_info "Validating cluster health..."
