@@ -45,7 +45,12 @@ echo "$MATCHING_SERVERS" | while read id name ip; do
 done
 
 echo ""
-read -p "Delete these servers? (yes/no): " confirm
+if [ "${CI:-false}" != "true" ]; then
+    read -p "Delete these servers? (yes/no): " confirm
+else
+    confirm="yes"
+    log_info "Running in CI, proceeding with deletion"
+fi
 
 if [ "$confirm" != "yes" ]; then
     log_warn "Deletion cancelled"
@@ -71,6 +76,20 @@ echo "$MATCHING_SERVERS" | while read id name ip; do
 done
 
 log_info "Cluster deletion complete"
+
+# Clean up SSH key from BinaryLane if SSH_KEY_NAME is set
+if [ -n "${SSH_KEY_NAME:-}" ]; then
+    log_info "Cleaning up SSH key: $SSH_KEY_NAME"
+    SSH_KEY_ID=$(curl -s -X GET "https://api.binarylane.com.au/v2/account/keys" \
+        -H "Authorization: Bearer $BINARYLANE_API_TOKEN" | \
+        jq -r --arg name "$SSH_KEY_NAME" '.ssh_keys[] | select(.name == $name) | .id')
+
+    if [ -n "$SSH_KEY_ID" ] && [ "$SSH_KEY_ID" != "null" ]; then
+        curl -s -X DELETE "https://api.binarylane.com.au/v2/account/keys/$SSH_KEY_ID" \
+            -H "Authorization: Bearer $BINARYLANE_API_TOKEN"
+        log_info "✓ Deleted SSH key (ID: $SSH_KEY_ID)"
+    fi
+fi
 
 # Clean up local kubeconfig
 if [ -f ~/.kube/config-binarylane ]; then

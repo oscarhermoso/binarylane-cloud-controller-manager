@@ -9,7 +9,7 @@ WORKER_COUNT="${WORKER_COUNT:-2}"
 K8S_VERSION="${K8S_VERSION:-1.29.15}"
 POD_NETWORK_CIDR="${POD_NETWORK_CIDR:-10.244.0.0/16}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-.ssh/binarylane-k8s}"
-SSH_KEY_NAME="binarylane-k8s-cluster"
+SSH_KEY_NAME="${SSH_KEY_NAME:-binarylane-k8s-cluster}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
