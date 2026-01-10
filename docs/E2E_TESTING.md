@@ -206,21 +206,6 @@ This makes it safe to:
 - Verify cluster state
 - Check network connectivity to BinaryLane servers
 
-**Kubernetes installation fails:**
-- Review server logs via BinaryLane console
-- Check if servers have sufficient resources
-- Verify internet connectivity for package downloads
-
-**CCM deployment fails:**
-- Check API token is valid
-- Review CCM pod logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager`
-- Verify cloud config is correct
-
-**Node provider IDs not set:**
-- Ensure nodes were initialized with `--cloud-provider=external`
-- Check CCM is running and not crashing
-- Review CCM logs for errors
-
 ### Viewing Test Logs
 
 **GitHub Actions:**

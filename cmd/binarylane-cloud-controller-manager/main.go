@@ -17,11 +17,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	binaryLaneAccessTokenEnv = "BINARYLANE_ACCESS_TOKEN"
-	binaryLaneRegionEnv      = "BINARYLANE_REGION"
-)
-
 func main() {
 	opts, err := options.NewCloudControllerManagerOptions()
 	if err != nil {
@@ -53,15 +48,14 @@ func main() {
 func cloudInitializer(config *config.CompletedConfig) cloudprovider.Interface {
 	cloudConfig := config.ComponentConfig.KubeCloudShared.CloudProvider
 
-	token := os.Getenv(binaryLaneAccessTokenEnv)
+	token := os.Getenv("BINARYLANE_ACCESS_TOKEN")
 	if token == "" {
-		klog.Fatalf("%s environment variable is required", binaryLaneAccessTokenEnv)
+		klog.Fatalf("BINARYLANE_ACCESS_TOKEN environment variable is required")
 	}
 
-	region := os.Getenv(binaryLaneRegionEnv)
+	region := os.Getenv("BINARYLANE_REGION")
 	if region == "" {
-		klog.Warning("BINARYLANE_REGION environment variable not set, using default")
-		region = "default"
+		klog.Fatalf("BINARYLANE_REGION environment variable is required")
 	}
 
 	cloudProvider, err := cloud.NewCloud(token, region)
