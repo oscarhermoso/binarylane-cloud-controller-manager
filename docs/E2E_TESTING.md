@@ -200,9 +200,10 @@ The E2E tests are integrated into the development workflow:
    - Rotate tokens regularly
 
 2. **SSH Access**:
-   - Tests use temporary SSH keys
-   - Keys are not stored permanently
-   - Consider using BinaryLane's SSH key management
+   - Tests use password-based authentication for convenience
+   - SSH host key checking is disabled for test environments
+   - **Note**: These practices are acceptable for temporary test infrastructure but should NOT be used in production
+   - For production deployments, use SSH key-based authentication via BinaryLane's SSH key management
 
 3. **Resource Cleanup**:
    - Cleanup runs even if tests fail

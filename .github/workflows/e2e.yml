@@ -171,6 +171,8 @@ jobs:
           chmod 600 ~/.ssh/bl_e2e
           
           # Configure SSH to skip host key checking for testing
+          # NOTE: This is acceptable for temporary test infrastructure that is deleted after tests.
+          # For production deployments, use proper SSH key management with host key verification.
           cat >> ~/.ssh/config << EOF
           Host ${CONTROL_PLANE_IP} ${WORKER_IP}
             StrictHostKeyChecking no
@@ -225,6 +227,8 @@ jobs:
           EOFSCRIPT
           
           # Get root password from BinaryLane API
+          # NOTE: Using password-based auth for temporary test infrastructure.
+          # Production deployments should use SSH key-based authentication via BinaryLane API.
           ROOT_PASSWORD=$(curl -s "https://api.binarylane.com.au/v2/servers/${CONTROL_PLANE_ID}/actions" \
             -X POST \
             -H "Authorization: Bearer ${BINARYLANE_API_TOKEN}" \
