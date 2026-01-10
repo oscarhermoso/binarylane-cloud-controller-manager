@@ -77,7 +77,7 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 	return &cloudprovider.InstanceMetadata{
 		ProviderID:    providerID,
 		NodeAddresses: addresses,
-		InstanceType:  "", // Could be populated if BinaryLane provides instance type info
+		InstanceType:  server.Size.Slug,
 		Zone:          server.Region.Slug,
 		Region:        server.Region.Slug,
 	}, nil

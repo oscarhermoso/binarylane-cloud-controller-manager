@@ -13,6 +13,10 @@ const (
 	ProviderName = "binarylane"
 )
 
+var (
+	_ cloudprovider.Interface = &Cloud{}
+)
+
 // Cloud is the BinaryLane implementation of the cloud provider interface
 type Cloud struct {
 	client *binarylane.BinaryLaneClient

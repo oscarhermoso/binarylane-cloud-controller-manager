@@ -6,9 +6,10 @@ This document provides details about the implementation of the BinaryLane Cloud 
 
 The BinaryLane Cloud Controller Manager is a Kubernetes controller that enables integration between Kubernetes clusters and BinaryLane cloud infrastructure. It implements the standard Kubernetes Cloud Controller Manager interfaces to provide:
 
-1. **Node Management**: Automatic node registration and metadata management
-2. **Load Balancer Provisioning**: Automatic creation and management of BinaryLane load balancers
-3. **Zone Awareness**: Topology information for scheduling and high availability
+1. **Instances Management**: Automatic node registration and metadata management
+2. **Zones Support**: Topology information for scheduling and high availability
+
+> **Note**: Load balancer provisioning is not currently implemented.
 
 ## Architecture
 
@@ -204,8 +205,7 @@ Implements the `cloudprovider.Zones` interface for topology awareness.
 ### Environment Variables
 
 - `BINARYLANE_ACCESS_TOKEN`: API authentication token (required)
-- `BINARYLANE_REGION`: Default region for resources (optional)
-- `BINARYLANE_VPC_ID`: Default VPC for load balancers (optional)
+- `BINARYLANE_REGION`: BinaryLane region for cluster resources (required)
 
 ### Command-Line Flags
 

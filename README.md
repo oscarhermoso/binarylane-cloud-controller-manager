@@ -6,10 +6,10 @@ A Kubernetes Cloud Controller Manager implementation for BinaryLane cloud infras
 
 This cloud controller manager implements the following Kubernetes cloud provider interfaces:
 
-- **Node Controller**: Manages node lifecycle and updates node metadata with cloud-specific information
-- **Zone Controller**: Provides availability zone information for nodes
+- **Instances Controller**: Manages node lifecycle and updates node metadata with cloud-specific information
+- **Zones Controller**: Provides availability zone information for nodes
 
-> **Note**: Load balancer support has been removed as BinaryLane's load balancer API is not fully compatible with the Kubernetes Load Balancer specification.
+> **Note**: Load balancer support is not currently implemented.
 
 ## Installation
 
@@ -79,13 +79,7 @@ This will:
 **Build the Project:**
 
 ```bash
-# Build the binary
 make build
-
-# Run tests
-make test
-
-# Build Docker image
 make docker-build
 ```
 
@@ -94,14 +88,13 @@ make docker-build
 ### Environment Variables
 
 - `BINARYLANE_ACCESS_TOKEN` (required): Your BinaryLane API token
-- `BINARYLANE_REGION` (optional): The default region for resources
+- `BINARYLANE_REGION` (required): The BinaryLane region for your cluster
 
 
 Nodes will be automatically configured with:
 - Provider ID in the format `binarylane://<server-id>`
 - Node addresses (internal and external IPs)
-- Zone/region information
-- Instance type metadata
+- Zone/region information (topology.kubernetes.io/zone and topology.kubernetes.io/region labels)
 
 ## Development
 
@@ -111,10 +104,13 @@ Nodes will be automatically configured with:
 ├── cmd/
 │   └── binarylane-cloud-controller-manager/  # Main application
 ├── internal/
-│   ├── binarylane/                            # BinaryLane API client
+│   ├── binarylane/                            # Generated BinaryLane API client
 │   └── cloud/                                 # Cloud provider implementation
+├── charts/
+│   └── binarylane-cloud-controller-manager/  # Helm chart
 ├── deploy/
 │   └── kubernetes/                            # Kubernetes manifests
+├── scripts/                                   # Deployment and testing scripts
 ├── Dockerfile
 ├── Makefile
 └── README.md
@@ -124,13 +120,8 @@ Nodes will be automatically configured with:
 
 **Unit Tests:**
 ```bash
-# Run all tests
 make test
-
-# Run tests with coverage
 make coverage
-
-# Run linters
 make lint
 ```
 
@@ -155,23 +146,10 @@ See [E2E Testing Guide](docs/E2E_TESTING.md) for detailed information.
 
 ### API Client
 
-The BinaryLane API client is located in `internal/binarylane/` and provides methods for:
-- Server management
-- Load balancer management
-- Network configuration
+The BinaryLane API client is located in `internal/binarylane/` and is automatically generated from the BinaryLane OpenAPI specification. It provides type-safe methods for:
+- Server management and queries
+- Network information retrieval
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-## Support
-
-For issues related to:
-- **This cloud controller manager**: Open an issue in this repository
-- **BinaryLane API**: Contact BinaryLane support at support@binarylane.com.au
-- **Kubernetes**: Refer to the [Kubernetes documentation](https://kubernetes.io/docs/)
-
