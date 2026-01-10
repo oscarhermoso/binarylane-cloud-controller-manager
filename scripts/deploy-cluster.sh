@@ -447,11 +447,17 @@ deploy_cloud_controller_manager() {
         docker save binarylane-cloud-controller-manager:local | \
             ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP "ctr -n k8s.io images import -"
 
+        # Create secret with API token
+        log_info "Creating secret with API token..."
+        kubectl create secret generic binarylane-api-token \
+            --from-literal=api-token=$BINARYLANE_API_TOKEN \
+            -n kube-system
+
         # Deploy with Helm
         log_info "Installing CCM with Helm..."
         helm install binarylane-ccm charts/binarylane-cloud-controller-manager \
             --namespace kube-system \
-            --set cloudControllerManager.apiToken=$BINARYLANE_API_TOKEN \
+            --set cloudControllerManager.existingSecret=binarylane-api-token \
             --set cloudControllerManager.region=$REGION \
             --set image.repository=docker.io/library/binarylane-cloud-controller-manager \
             --set image.tag=local \

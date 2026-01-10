@@ -58,14 +58,3 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
-
-{{/*
-Create the name of the secret to use
-*/}}
-{{- define "binarylane-cloud-controller-manager.secretName" -}}
-{{- if .Values.cloudControllerManager.existingSecret }}
-{{- .Values.cloudControllerManager.existingSecret }}
-{{- else }}
-{{- include "binarylane-cloud-controller-manager.fullname" . }}
-{{- end }}
-{{- end }}

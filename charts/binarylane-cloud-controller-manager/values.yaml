@@ -8,23 +8,22 @@ image:
   repository: ghcr.io/oscarhermoso/binarylane-cloud-controller-manager
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: ''
 
 imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
+nameOverride: ''
+fullnameOverride: ''
 
 cloudControllerManager:
-  # BinaryLane API token - must be provided
-  apiToken: ""
-  # Optional: BinaryLane region (e.g., "syd", "bne", "per")
-  region: ""
-  # Optional: BinaryLane API URL
-  apiUrl: "https://api.binarylane.com.au"
-  # Use existing secret for API token
-  existingSecret: ""
-  # Key in existing secret for API token
-  existingSecretKey: "api-token"
+  # Name of secret containing BinaryLane API token
+  # Create: kubectl create secret generic binarylane-api-token --from-literal=api-token="YOUR_TOKEN" -n kube-system
+  secret:
+    name: ''
+    key: 'api-token'
+  # BinaryLane region (e.g., "syd", "bne", "per")
+  region: ''
+  # BinaryLane API URL
+  apiUrl: 'https://api.binarylane.com.au'
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -35,7 +34,7 @@ serviceAccount:
   annotations: {}
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: ""
+  name: ''
 
 podAnnotations: {}
 podLabels: {}
@@ -51,7 +50,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: true
 
 resources:
@@ -64,7 +63,7 @@ resources:
 
 # Node selector for pod assignment
 nodeSelector:
-  node-role.kubernetes.io/control-plane: ""
+  node-role.kubernetes.io/control-plane: ''
 
 # Tolerations for pod assignment
 tolerations:

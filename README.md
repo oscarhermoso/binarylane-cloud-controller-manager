@@ -22,12 +22,19 @@ This cloud controller manager implements the following Kubernetes cloud provider
 ### Quick Start with Helm
 
 ```bash
+# Create a secret with your API token
+kubectl create secret generic binarylane-api-token \
+  --from-literal=api-token="YOUR_API_TOKEN" \
+  -n kube-system
+
+# Add the Helm repository
 helm repo add binarylane https://oscarhermoso.github.io/binarylane-cloud-controller-manager
 helm repo update
 
+# Install using the existing secret
 helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
   --namespace kube-system \
-  --set cloudControllerManager.apiToken="YOUR_API_TOKEN" \
+  --set cloudControllerManager.existingSecret="binarylane-api-token" \
   --set cloudControllerManager.region="per"
 ```
 
@@ -88,13 +95,23 @@ make docker-build
 ### Environment Variables
 
 - `BINARYLANE_ACCESS_TOKEN` (required): Your BinaryLane API token
-- `BINARYLANE_REGION` (required): The BinaryLane region for your cluster
+- `BINARYLANE_REGION` (required): The BinaryLane region where the cloud controller manager runs (typically the control plane region)
 
+### Multi-Region Clusters
+
+The cloud controller manager supports clusters with nodes in multiple BinaryLane regions. Each node will be automatically labeled with its actual region from the BinaryLane API:
+
+- `topology.kubernetes.io/zone` - The node's BinaryLane region (e.g., "syd", "per", "bne")
+- `topology.kubernetes.io/region` - The node's BinaryLane region (same as zone)
+
+The `BINARYLANE_REGION` environment variable is used for the controller manager's own zone awareness and does not restrict which regions your nodes can be in.
+
+### Node Configuration
 
 Nodes will be automatically configured with:
 - Provider ID in the format `binarylane://<server-id>`
 - Node addresses (internal and external IPs)
-- Zone/region information (topology.kubernetes.io/zone and topology.kubernetes.io/region labels)
+- Zone/region labels based on each VM's actual BinaryLane region
 
 ## Development
 

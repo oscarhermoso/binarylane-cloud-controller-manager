@@ -13,21 +13,17 @@ image:
 
 # BinaryLane Cloud Controller Manager specific settings
 cloudControllerManager:
-  # REQUIRED: BinaryLane API token
-  # You can get this from your BinaryLane account settings
-  apiToken: "YOUR_BINARYLANE_API_TOKEN_HERE"
-  
-  # OPTIONAL: Specify the BinaryLane region
-  # Examples: "syd" (Sydney), "bne" (Brisbane), "per" (Perth)
-  region: "syd"
-  
-  # OPTIONAL: BinaryLane API URL (use default unless testing)
-  apiUrl: "https://api.binarylane.com.au"
-  
-  # OPTIONAL: Use an existing secret instead of creating one
-  # If set, apiToken above will be ignored
-  # existingSecret: "binarylane-api-token"
-  # existingSecretKey: "api-token"
+  # Secret containing BinaryLane API token
+  # Create first: kubectl create secret generic binarylane-api-token --from-literal=api-token="YOUR_TOKEN" -n kube-system
+  secret:
+    name: 'binarylane-api-token'
+    key: 'api-token'
+
+  # BinaryLane region - "syd" (Sydney), "bne" (Brisbane), "per" (Perth)
+  region: 'syd'
+
+  # BinaryLane API URL (use default unless testing)
+  apiUrl: 'https://api.binarylane.com.au'
 
 # Service account configuration
 serviceAccount:
@@ -52,7 +48,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: true
 
 # Resource limits and requests
@@ -66,7 +62,7 @@ resources:
 
 # Node selector - run on control plane nodes
 nodeSelector:
-  node-role.kubernetes.io/control-plane: ""
+  node-role.kubernetes.io/control-plane: ''
 
 # Tolerations - allow scheduling on control plane nodes
 tolerations:
@@ -93,23 +89,27 @@ hostNetwork: true
 verbosity: 2
 
 # Additional command-line arguments
-extraArgs: []
+extraArgs:
+  []
   # - --cluster-cidr=10.244.0.0/16
   # - --configure-cloud-routes=false
 
 # Additional environment variables
-extraEnv: []
+extraEnv:
+  []
   # - name: HTTP_PROXY
   #   value: "http://proxy.example.com:8080"
 
 # Additional volumes
-extraVolumes: []
+extraVolumes:
+  []
   # - name: ca-certs
   #   hostPath:
   #     path: /etc/ssl/certs
 
 # Additional volume mounts
-extraVolumeMounts: []
+extraVolumeMounts:
+  []
   # - name: ca-certs
   #   mountPath: /etc/ssl/certs
   #   readOnly: true
