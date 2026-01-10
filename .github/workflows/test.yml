@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -172,3 +173,60 @@ jobs:
 
   #         # Install the chart
   #         ct install --chart-dirs charts --all
+
+  e2e-test:
+    name: End-to-End Test on BinaryLane
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event_name == 'workflow_dispatch'
+    environment: test
+
+    permissions:
+      contents: read
+
+    env:
+      CLUSTER_NAME: "ccm-e2e-test"
+      REGION: "per"
+      BINARYLANE_API_TOKEN: ${{ secrets.BINARYLANE_API_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq sshpass
+
+      - name: Build CCM binary and Docker image
+        run: |
+          make build
+          docker build -t binarylane-ccm:${{ github.sha }} .
+
+      - name: Deploy cluster and run E2E tests
+        run: |
+          export DOCKER_IMAGE_TAG="${{ github.sha }}"
+          chmod +x scripts/deploy-cluster.sh scripts/e2e-test.sh
+          ./scripts/deploy-cluster.sh
+          ./scripts/e2e-test.sh
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f scripts/delete-cluster.sh ]; then
+            chmod +x scripts/delete-cluster.sh
+            ./scripts/delete-cluster.sh
+          fi
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-logs
+          path: |
+            ~/.kube/config*
+          retention-days: 7
