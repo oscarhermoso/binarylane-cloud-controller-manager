@@ -5,8 +5,11 @@
 
 # Build artifacts
 bin/
+dist/
 *.tar
 *.tar.gz
+*.o
+*.a
 
 # Documentation
 *.md
@@ -18,6 +21,7 @@ scripts/
 # Tests
 *_test.go
 **/*_test.go
+**/test-*.yaml
 
 # Deployment configs
 deploy/
@@ -26,6 +30,7 @@ charts/
 # IDE
 .vscode/
 .idea/
+*.iml
 *.swp
 *.swo
 *~
@@ -48,6 +53,16 @@ temp/
 *.tmp
 
 # OpenAPI
+openapi.json
+
+# Code generation
+generate.go
+
+# Other
+ct.yaml
+Makefile
+tools/
+.DS_Store
 openapi.json
 *.cfg.yml
 
