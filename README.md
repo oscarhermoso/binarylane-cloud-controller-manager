@@ -9,6 +9,17 @@ This [cloud controller manager](https://kubernetes.io/docs/concepts/architecture
 - **Instances Controller**: Manages node lifecycle and updates node metadata with cloud-specific information
 - **Zones Controller**: Provides availability zone information for nodes
 
+
+The cloud controller manager automatically applies the following labels to nodes:
+
+| Label                              | Description                                                                  |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `binarylane.com/host`              | Physical host machine name (if running on shared infrastructure)             |
+| `node.kubernetes.io/instance-type` | Server size (e.g., `std-2vcpu`)                                              |
+| `topology.kubernetes.io/region`    | Server region (e.g., `syd`, `per`)                                           |
+| `topology.kubernetes.io/zone`      | Same as region, may update to distinguish between data centres in the future |
+
+
 ## Installation
 
 ### Prerequisites
@@ -64,11 +75,6 @@ kubectl apply -f deploy/kubernetes/deployment.yaml
 ### Environment Variables
 
 - `BINARYLANE_ACCESS_TOKEN` (required): Your BinaryLane API token
-
-Nodes are automatically detected and configured with:
-- Provider ID in the format `binarylane://<server-id>`
-- Node addresses (internal and external IPs)
-- Zone/region information (queried per-node from BinaryLane API)
 
 ## Contributing
 

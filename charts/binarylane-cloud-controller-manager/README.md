@@ -115,7 +115,6 @@ tolerations:
 # values-custom-nodes.yaml
 cloudControllerManager:
   apiToken: "your-api-token-here"
-  region: "syd"
 
 nodeSelector:
   node-role.kubernetes.io/control-plane: ""

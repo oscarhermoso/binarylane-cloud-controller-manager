@@ -344,6 +344,88 @@ wait_for_ssh() {
     return 1
 }
 
+install_kubernetes_prerequisites() {
+    local ip="$1"
+    local hostname="${2:-server}"
+
+    log_info "Installing Kubernetes prerequisites on $hostname ($ip)..."
+
+    # Check if already installed
+    if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes root@$ip "which kubeadm" &>/dev/null; then
+        log_info "Kubernetes already installed on $hostname"
+        return 0
+    fi
+
+    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$ip bash <<'EOF'
+set -euo pipefail
+
+# Update system
+apt-get update
+apt-get upgrade -y
+
+# Install required packages
+apt-get install -y \
+    curl \
+    wget \
+    git \
+    htop \
+    net-tools \
+    vim \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    lsb-release
+
+# Add Docker repository for containerd
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update
+
+# Install containerd
+apt-get install -y containerd.io
+
+# Configure containerd
+mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml > /dev/null
+systemctl restart containerd
+
+# Disable swap
+swapoff -a
+sed -i '/ swap / s/^/#/' /etc/fstab
+
+# Load kernel modules
+cat > /etc/modules-load.d/k8s.conf <<'EOL'
+overlay
+br_netfilter
+EOL
+modprobe overlay
+modprobe br_netfilter
+
+# Set kernel parameters
+cat > /etc/sysctl.d/k8s.conf <<'EOL'
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+EOL
+sysctl --system
+
+# Install Kubernetes
+KUBE_VERSION="1.33.3-1.1"
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+apt-get update
+apt-get install -y kubelet=$KUBE_VERSION kubeadm=$KUBE_VERSION kubectl=$KUBE_VERSION
+apt-mark hold kubelet kubeadm kubectl
+
+# Enable kubelet service
+systemctl enable kubelet
+
+echo "Kubernetes installation complete"
+EOF
+
+    log_success "Kubernetes installed on $hostname"
+}
+
 initialize_control_plane() {
     log_info "Initializing Kubernetes control plane..."
 
@@ -626,6 +708,24 @@ main() {
         wait $pid || { log_error "Failed to connect to worker node via SSH"; exit 1; }
     done
     log_success "All nodes are accessible via SSH"
+
+    # Install Kubernetes prerequisites on all nodes in parallel
+    log_info "Installing Kubernetes prerequisites on all nodes in parallel..."
+    install_kubernetes_prerequisites $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1" &
+    local control_k8s_pid=$!
+
+    declare -a k8s_pids
+    for i in "${!WORKER_IPS[@]}"; do
+        install_kubernetes_prerequisites "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))" &
+        k8s_pids+=( $! )
+    done
+
+    # Wait for all Kubernetes installations to complete
+    wait $control_k8s_pid || { log_error "Failed to install Kubernetes on control plane"; exit 1; }
+    for pid in "${k8s_pids[@]}"; do
+        wait $pid || { log_error "Failed to install Kubernetes on worker node"; exit 1; }
+    done
+    log_success "Kubernetes installed on all nodes"
 
     initialize_control_plane
 
