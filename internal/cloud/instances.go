@@ -11,6 +11,10 @@ import (
 	cloudprovider "k8s.io/cloud-provider"
 )
 
+var (
+	_ cloudprovider.InstancesV2 = &instancesV2{}
+)
+
 type instancesV2 struct {
 	client *binarylane.BinaryLaneClient
 	region string

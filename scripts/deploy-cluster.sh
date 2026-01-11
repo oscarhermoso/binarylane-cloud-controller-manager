@@ -104,12 +104,12 @@ api_call() {
     local url="https://api.binarylane.com.au/v2${endpoint}"
 
     if [ -n "$data" ]; then
-        curl -s -X "$method" "$url" \
+        curl -s --max-time 30 --connect-timeout 10 -X "$method" "$url" \
             -H "Authorization: Bearer $BINARYLANE_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$data"
     else
-        curl -s -X "$method" "$url" \
+        curl -s --max-time 30 --connect-timeout 10 -X "$method" "$url" \
             -H "Authorization: Bearer $BINARYLANE_API_TOKEN"
     fi
 }
@@ -127,11 +127,24 @@ wait_for_server_ready() {
     log_info "Waiting for server $server_id to be ready..."
 
     while [ $attempt -lt $max_attempts ]; do
-        local status=$(api_call GET "/servers/$server_id" | jq -r '.server.status')
+        local response=$(api_call GET "/servers/$server_id" 2>&1)
+        local status=$(echo "$response" | jq -r '.server.status' 2>/dev/null)
+
+        # Debug: Show status every 10 attempts
+        if [ $((attempt % 10)) -eq 0 ] && [ $attempt -gt 0 ]; then
+            log_info "Status after $attempt attempts: '$status'" >&2
+        fi
 
         if [ "$status" == "active" ]; then
+            echo "" >&2  # New line after dots
             log_success "Server $server_id is ready"
             return 0
+        elif [ -z "$status" ] || [ "$status" == "null" ]; then
+            log_error "Failed to get server status (attempt $attempt/$max_attempts)"
+            log_error "API Response: $response"
+            if [ $attempt -ge 5 ]; then
+                return 1
+            fi
         fi
 
         echo -n "." >&2
@@ -139,7 +152,8 @@ wait_for_server_ready() {
         attempt=$((attempt + 1))
     done
 
-    log_error "Server $server_id did not become ready in time"
+    echo "" >&2  # New line after dots
+    log_error "Server $server_id did not become ready in time (last status: '$status')"
     return 1
 }
 
@@ -282,9 +296,15 @@ wait_for_ssh() {
     log_info "Waiting for SSH on $hostname ($ip)..."
 
     while [ $attempt -lt $max_attempts ]; do
-        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes root@$ip "echo 'SSH ready'"; then
+        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes root@$ip "echo 'SSH ready'" 2>/dev/null; then
+            echo "" >&2  # New line after dots
             log_success "SSH ready on $hostname ($ip)"
             return 0
+        fi
+
+        # Show progress every 10 attempts
+        if [ $((attempt % 10)) -eq 0 ] && [ $attempt -gt 0 ]; then
+            log_info "Still waiting for SSH (attempt $attempt/$max_attempts)..." >&2
         fi
 
         echo -n "." >&2
@@ -292,6 +312,7 @@ wait_for_ssh() {
         attempt=$((attempt + 1))
     done
 
+    echo "" >&2  # New line after dots
     log_error "SSH did not become ready on $hostname ($ip) after $((max_attempts * 5)) seconds"
     log_error "Please verify:"
     log_error "  1. SSH key is added to your BinaryLane account"
@@ -463,14 +484,62 @@ deploy_cloud_controller_manager() {
             --namespace kube-system \
             --set cloudControllerManager.secret.name=binarylane-api-token \
             --set cloudControllerManager.region=$REGION \
-            --set image.repository=binarylane-cloud-controller-manager \
+            --set image.repository=docker.io/library/binarylane-cloud-controller-manager \
             --set image.tag=local \
             --set image.pullPolicy=Never
 
+        log_info "Waiting for CCM deployment to be created..."
+        sleep 5
+
+        # Get pod name for debugging
+        local pod_name=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+        if [ -n "$pod_name" ]; then
+            log_info "CCM pod name: $pod_name"
+
+            log_info "Pod status:"
+            kubectl get pod -n kube-system "$pod_name" -o wide || true
+
+            log_info "Pod events:"
+            kubectl get events -n kube-system --field-selector involvedObject.name="$pod_name" --sort-by='.lastTimestamp' || true
+        fi
+
         # Wait for CCM to be ready
-        kubectl wait --for=condition=Ready pod -n kube-system \
+        log_info "Waiting for CCM pod to be ready (timeout: 120s)..."
+        if ! kubectl wait --for=condition=Ready pod -n kube-system \
             -l app.kubernetes.io/name=binarylane-cloud-controller-manager \
-            --timeout=120s
+            --timeout=120s; then
+
+            log_error "CCM pod did not become ready"
+
+            # Detailed debugging information
+            log_info "=== DEBUGGING INFORMATION ==="
+
+            log_info "All pods in kube-system:"
+            kubectl get pods -n kube-system -o wide || true
+
+            if [ -n "$pod_name" ]; then
+                log_info "Pod description:"
+                kubectl describe pod -n kube-system "$pod_name" || true
+
+                log_info "Pod logs:"
+                kubectl logs -n kube-system "$pod_name" --tail=100 || true
+
+                log_info "Previous pod logs (if restarted):"
+                kubectl logs -n kube-system "$pod_name" --previous --tail=100 2>/dev/null || echo "No previous logs"
+            fi
+
+            log_info "Deployment status:"
+            kubectl get deployment -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager -o yaml || true
+
+            log_info "ReplicaSet status:"
+            kubectl get replicaset -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager -o yaml || true
+
+            log_info "Images in containerd:"
+            ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP "ctr -n k8s.io images ls | grep binarylane" || true
+
+            return 1
+        fi
 
         log_success "CCM deployed"
     fi
