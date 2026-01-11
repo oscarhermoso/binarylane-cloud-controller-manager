@@ -447,7 +447,8 @@ apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 nodeRegistration:
   kubeletExtraArgs:
-    cloud-provider: external
+  - name: cloud-provider
+    value: external
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
@@ -519,7 +520,8 @@ discovery:
     - "sha256:$ca_hash"
 nodeRegistration:
   kubeletExtraArgs:
-    cloud-provider: external
+  - name: cloud-provider
+    value: external
 EOL
 
 kubeadm join --config /tmp/kubeadm-join-config.yaml
@@ -584,7 +586,14 @@ deploy_cloud_controller_manager() {
             --set image.pullPolicy=Never
 
         log_info "Waiting for CCM deployment to be created..."
-        sleep 5
+        local wait_attempts=0
+        while [ $wait_attempts -lt 30 ]; do
+            if kubectl get deployment -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager &>/dev/null; then
+                break
+            fi
+            sleep 1
+            wait_attempts=$((wait_attempts + 1))
+        done
 
         # Get pod name for debugging
         local pod_name=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
