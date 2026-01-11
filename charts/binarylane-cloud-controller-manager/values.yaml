@@ -8,23 +8,25 @@ image:
   repository: ghcr.io/oscarhermoso/binarylane-cloud-controller-manager
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: ''
 
 imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
+nameOverride: ''
+fullnameOverride: ''
+
+# For testing purposes only - creates a dummy secret
+createTestSecret: false
 
 cloudControllerManager:
-  # BinaryLane API token - must be provided
-  apiToken: ""
-  # Optional: BinaryLane region (e.g., "syd", "bne", "per")
-  region: ""
-  # Optional: BinaryLane API URL
-  apiUrl: "https://api.binarylane.com.au"
-  # Use existing secret for API token
-  existingSecret: ""
-  # Key in existing secret for API token
-  existingSecretKey: "api-token"
+  # Name of secret containing BinaryLane API token
+  # Create: kubectl create secret generic binarylane-api-token --from-literal=api-token="YOUR_TOKEN" -n kube-system
+  secret:
+    name: ''
+    key: 'api-token'
+  # BinaryLane region (e.g., "syd", "bne", "per")
+  region: ''
+  # BinaryLane API URL
+  apiUrl: 'https://api.binarylane.com.au'
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -35,7 +37,7 @@ serviceAccount:
   annotations: {}
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: ""
+  name: ''
 
 podAnnotations: {}
 podLabels: {}
@@ -51,7 +53,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: true
 
 resources:
@@ -64,22 +66,41 @@ resources:
 
 # Node selector for pod assignment
 nodeSelector:
-  node-role.kubernetes.io/control-plane: ""
+  node-role.kubernetes.io/control-plane: ''
 
 # Tolerations for pod assignment
 tolerations:
-  - key: node-role.kubernetes.io/control-plane
+  # Tolerate control-plane taint (Kubernetes 1.24+)
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/control-plane
     operator: Exists
-    effect: NoSchedule
-  - key: node-role.kubernetes.io/master
+  # Tolerate master taint (legacy, pre-1.24)
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
     operator: Exists
-    effect: NoSchedule
-  - key: node.cloudprovider.kubernetes.io/uninitialized
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
     operator: Exists
-    effect: NoSchedule
+    tolerationSeconds: 120
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 120
+  - effect: NoSchedule
+    key: node.cloudprovider.kubernetes.io/uninitialized
+    operator: Exists
+  - effect: NoSchedule
+    key: node.kubernetes.io/not-ready
+    operator: Exists
 
 # Affinity for pod assignment
-affinity: {}
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: binarylane-cloud-controller-manager
 
 # Priority class name
 priorityClassName: system-cluster-critical
@@ -97,22 +118,26 @@ service:
 verbosity: 2
 
 # Extra arguments to pass to the cloud controller manager
-extraArgs: []
+extraArgs:
+  []
   # - --configure-cloud-routes=false
 
 # Extra environment variables
-extraEnv: []
+extraEnv:
+  []
   # - name: HTTP_PROXY
   #   value: "http://proxy.example.com:8080"
 
 # Extra volumes
-extraVolumes: []
+extraVolumes:
+  []
   # - name: ca-certs
   #   hostPath:
   #     path: /etc/ssl/certs
 
 # Extra volume mounts
-extraVolumeMounts: []
+extraVolumeMounts:
+  []
   # - name: ca-certs
   #   mountPath: /etc/ssl/certs
   #   readOnly: true

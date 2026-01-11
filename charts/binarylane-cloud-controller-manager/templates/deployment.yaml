@@ -7,16 +7,17 @@ metadata:
     {{- include "binarylane-cloud-controller-manager.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "binarylane-cloud-controller-manager.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
       annotations:
-        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
-        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-        {{- end }}
+      {{- end }}
       labels:
         {{- include "binarylane-cloud-controller-manager.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
@@ -55,8 +56,8 @@ spec:
             - name: BINARYLANE_ACCESS_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "binarylane-cloud-controller-manager.secretName" . }}
-                  key: {{ .Values.cloudControllerManager.existingSecretKey }}
+                  name: {{ required "cloudControllerManager.secret.name is required" .Values.cloudControllerManager.secret.name }}
+                  key: {{ .Values.cloudControllerManager.secret.key }}
             {{- if .Values.cloudControllerManager.region }}
             - name: BINARYLANE_REGION
               value: {{ .Values.cloudControllerManager.region | quote }}

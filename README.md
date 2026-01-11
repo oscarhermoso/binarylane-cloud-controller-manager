@@ -22,12 +22,19 @@ This cloud controller manager implements the following Kubernetes cloud provider
 ### Quick Start with Helm
 
 ```bash
+# Create a secret with your API token
+kubectl create secret generic binarylane-api-token \
+  --from-literal=api-token="YOUR_API_TOKEN" \
+  -n kube-system
+
+# Add the Helm repository
 helm repo add binarylane https://oscarhermoso.github.io/binarylane-cloud-controller-manager
 helm repo update
 
+# Install using the existing secret
 helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
   --namespace kube-system \
-  --set cloudControllerManager.apiToken="YOUR_API_TOKEN" \
+  --set cloudControllerManager.secret.name="binarylane-api-token" \
   --set cloudControllerManager.region="per"
 ```
 
@@ -38,8 +45,8 @@ For more Helm configuration options, see the [Helm chart documentation](charts/b
 1. **Create a secret with your BinaryLane API token:**
 
 ```bash
-kubectl create secret generic binarylane-cloud-controller-manager \
-  --from-literal=access-token=YOUR_BINARYLANE_API_TOKEN \
+kubectl create secret generic binarylane-api-token \
+  --from-literal=api-token=YOUR_BINARYLANE_API_TOKEN \
   -n kube-system
 ```
 
@@ -94,7 +101,7 @@ make docker-build
 Nodes will be automatically configured with:
 - Provider ID in the format `binarylane://<server-id>`
 - Node addresses (internal and external IPs)
-- Zone/region information (topology.kubernetes.io/zone and topology.kubernetes.io/region labels)
+- Zone/region information
 
 ## Development
 

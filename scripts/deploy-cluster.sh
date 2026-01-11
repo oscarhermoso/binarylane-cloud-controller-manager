@@ -104,12 +104,12 @@ api_call() {
     local url="https://api.binarylane.com.au/v2${endpoint}"
 
     if [ -n "$data" ]; then
-        curl -s -X "$method" "$url" \
+        curl -s --max-time 30 --connect-timeout 10 -X "$method" "$url" \
             -H "Authorization: Bearer $BINARYLANE_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$data"
     else
-        curl -s -X "$method" "$url" \
+        curl -s --max-time 30 --connect-timeout 10 -X "$method" "$url" \
             -H "Authorization: Bearer $BINARYLANE_API_TOKEN"
     fi
 }
@@ -127,11 +127,24 @@ wait_for_server_ready() {
     log_info "Waiting for server $server_id to be ready..."
 
     while [ $attempt -lt $max_attempts ]; do
-        local status=$(api_call GET "/servers/$server_id" | jq -r '.server.status')
+        local response=$(api_call GET "/servers/$server_id" 2>&1)
+        local status=$(echo "$response" | jq -r '.server.status' 2>/dev/null)
+
+        # Debug: Show status every 10 attempts
+        if [ $((attempt % 10)) -eq 0 ] && [ $attempt -gt 0 ]; then
+            log_info "Status after $attempt attempts: '$status'" >&2
+        fi
 
         if [ "$status" == "active" ]; then
+            echo "" >&2  # New line after dots
             log_success "Server $server_id is ready"
             return 0
+        elif [ -z "$status" ] || [ "$status" == "null" ]; then
+            log_error "Failed to get server status (attempt $attempt/$max_attempts)"
+            log_error "API Response: $response"
+            if [ $attempt -ge 5 ]; then
+                return 1
+            fi
         fi
 
         echo -n "." >&2
@@ -139,7 +152,8 @@ wait_for_server_ready() {
         attempt=$((attempt + 1))
     done
 
-    log_error "Server $server_id did not become ready in time"
+    echo "" >&2  # New line after dots
+    log_error "Server $server_id did not become ready in time (last status: '$status')"
     return 1
 }
 
@@ -175,6 +189,9 @@ create_server() {
         return 1
     fi
 
+    # Generate random password to avoid email notifications
+    local random_password=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
+
     local data=$(cat <<EOF
 {
   "name": "$name",
@@ -182,6 +199,7 @@ create_server() {
   "size": "$SERVER_SIZE",
   "image": $image_id,
   "ssh_keys": [$SSH_KEY_ID],
+  "password": "$random_password",
   "backups": false
 }
 EOF
@@ -243,12 +261,35 @@ get_or_create_servers() {
 
     log_info "Control plane: ID=$CONTROL_PLANE_ID, IP=$CONTROL_PLANE_IP"
 
-    # Create workers
+    # Create workers in parallel
     WORKER_IPS=()
     WORKER_IDS=()
 
+    log_info "Creating $WORKER_COUNT worker nodes in parallel..."
+    declare -a worker_pids
+    declare -a worker_temp_files
+
     for i in $(seq 1 $WORKER_COUNT); do
-        local worker_result=$(create_server "${CLUSTER_NAME}-worker-$i" "worker")
+        local temp_file="/tmp/worker-${CLUSTER_NAME}-$i-$$"
+        worker_temp_files+=( "$temp_file" )
+        (
+            result=$(create_server "${CLUSTER_NAME}-worker-$i" "worker")
+            echo "$result" > "$temp_file"
+        ) &
+        worker_pids+=( $! )
+    done
+
+    # Wait for all worker creations to complete
+    for pid in "${worker_pids[@]}"; do
+        wait $pid
+    done
+
+    # Collect results
+    for i in $(seq 1 $WORKER_COUNT); do
+        local temp_file="${worker_temp_files[$((i-1))]}"
+        local worker_result=$(cat "$temp_file" 2>/dev/null || echo "")
+        rm -f "$temp_file"
+
         if [ -z "$worker_result" ]; then
             log_error "Failed to create or retrieve worker node $i"
             return 1
@@ -278,9 +319,15 @@ wait_for_ssh() {
     log_info "Waiting for SSH on $hostname ($ip)..."
 
     while [ $attempt -lt $max_attempts ]; do
-        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes root@$ip "echo 'SSH ready'"; then
+        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes root@$ip "echo 'SSH ready'" 2>/dev/null; then
+            echo "" >&2  # New line after dots
             log_success "SSH ready on $hostname ($ip)"
             return 0
+        fi
+
+        # Show progress every 10 attempts
+        if [ $((attempt % 10)) -eq 0 ] && [ $attempt -gt 0 ]; then
+            log_info "Still waiting for SSH (attempt $attempt/$max_attempts)..." >&2
         fi
 
         echo -n "." >&2
@@ -288,6 +335,7 @@ wait_for_ssh() {
         attempt=$((attempt + 1))
     done
 
+    echo "" >&2  # New line after dots
     log_error "SSH did not become ready on $hostname ($ip) after $((max_attempts * 5)) seconds"
     log_error "Please verify:"
     log_error "  1. SSH key is added to your BinaryLane account"
@@ -396,30 +444,43 @@ join_worker_nodes() {
     local join_command=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
         "kubeadm token create --print-join-command")
 
+    # Join all worker nodes in parallel
+    log_info "Joining ${#WORKER_IPS[@]} worker nodes in parallel..."
+    declare -a join_pids
+
     for i in "${!WORKER_IPS[@]}"; do
-        local worker_ip="${WORKER_IPS[$i]}"
-        local worker_name="${CLUSTER_NAME}-worker-$((i+1))"
+        (
+            local worker_ip="${WORKER_IPS[$i]}"
+            local worker_name="${CLUSTER_NAME}-worker-$((i+1))"
 
-        # Check if node is already joined
-        local node_exists=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
-            "kubectl get nodes --no-headers | grep -c '$worker_name' || true")
+            # Check if node is already joined
+            local node_exists=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
+                "kubectl get nodes --no-headers | grep -c '$worker_name' || true")
 
-        if [ "$node_exists" != "0" ]; then
-            log_info "Worker $worker_name already joined"
-            continue
-        fi
+            if [ "$node_exists" != "0" ]; then
+                log_info "Worker $worker_name already joined"
+                exit 0
+            fi
 
-        log_info "Joining worker: $worker_name ($worker_ip)"
+            log_info "Joining worker: $worker_name ($worker_ip)"
 
-        ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$worker_ip bash <<EOF
+            ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$worker_ip bash <<EOF
 set -euo pipefail
 $join_command
 EOF
 
-        log_success "Worker $worker_name joined"
+            log_success "Worker $worker_name joined"
+        ) &
+        join_pids+=( $! )
+    done
+
+    # Wait for all worker join operations to complete
+    for pid in "${join_pids[@]}"; do
+        wait $pid || { log_error "Failed to join worker node"; exit 1; }
     done
 
     # Wait for all nodes to be ready
+    log_info "Waiting for all nodes to be ready..."
     ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
         "kubectl wait --for=condition=Ready node --all --timeout=300s"
 
@@ -447,20 +508,74 @@ deploy_cloud_controller_manager() {
         docker save binarylane-cloud-controller-manager:local | \
             ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP "ctr -n k8s.io images import -"
 
+        # Create secret with API token
+        log_info "Creating secret with API token..."
+        kubectl create secret generic binarylane-api-token \
+            --from-literal=api-token=$BINARYLANE_API_TOKEN \
+            -n kube-system
+
         # Deploy with Helm
         log_info "Installing CCM with Helm..."
         helm install binarylane-ccm charts/binarylane-cloud-controller-manager \
             --namespace kube-system \
-            --set cloudControllerManager.apiToken=$BINARYLANE_API_TOKEN \
+            --set cloudControllerManager.secret.name=binarylane-api-token \
             --set cloudControllerManager.region=$REGION \
             --set image.repository=docker.io/library/binarylane-cloud-controller-manager \
             --set image.tag=local \
             --set image.pullPolicy=Never
 
+        log_info "Waiting for CCM deployment to be created..."
+        sleep 5
+
+        # Get pod name for debugging
+        local pod_name=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+        if [ -n "$pod_name" ]; then
+            log_info "CCM pod name: $pod_name"
+
+            log_info "Pod status:"
+            kubectl get pod -n kube-system "$pod_name" -o wide || true
+
+            log_info "Pod events:"
+            kubectl get events -n kube-system --field-selector involvedObject.name="$pod_name" --sort-by='.lastTimestamp' || true
+        fi
+
         # Wait for CCM to be ready
-        kubectl wait --for=condition=Ready pod -n kube-system \
+        log_info "Waiting for CCM pod to be ready (timeout: 120s)..."
+        if ! kubectl wait --for=condition=Ready pod -n kube-system \
             -l app.kubernetes.io/name=binarylane-cloud-controller-manager \
-            --timeout=120s
+            --timeout=120s; then
+
+            log_error "CCM pod did not become ready"
+
+            # Detailed debugging information
+            log_info "=== DEBUGGING INFORMATION ==="
+
+            log_info "All pods in kube-system:"
+            kubectl get pods -n kube-system -o wide || true
+
+            if [ -n "$pod_name" ]; then
+                log_info "Pod description:"
+                kubectl describe pod -n kube-system "$pod_name" || true
+
+                log_info "Pod logs:"
+                kubectl logs -n kube-system "$pod_name" --tail=100 || true
+
+                log_info "Previous pod logs (if restarted):"
+                kubectl logs -n kube-system "$pod_name" --previous --tail=100 2>/dev/null || echo "No previous logs"
+            fi
+
+            log_info "Deployment status:"
+            kubectl get deployment -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager -o yaml || true
+
+            log_info "ReplicaSet status:"
+            kubectl get replicaset -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager -o yaml || true
+
+            log_info "Images in containerd:"
+            ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP "ctr -n k8s.io images ls | grep binarylane" || true
+
+            return 1
+        fi
 
         log_success "CCM deployed"
     fi
@@ -490,27 +605,22 @@ validate_cluster() {
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 
-    # Node status
     echo "=== NODES ==="
     kubectl get nodes -o wide
     echo ""
 
-    # Provider IDs
     echo "=== PROVIDER IDs ==="
     kubectl get nodes -o json | jq -r '.items[] | "\(.metadata.name): \(.spec.providerID // "NOT SET")"'
     echo ""
 
-    # Node addresses
     echo "=== NODE ADDRESSES ==="
     kubectl get nodes -o json | jq -r '.items[] | "\(.metadata.name): " + ([.status.addresses[]? | "\(.type)=\(.address)"] | join(", "))'
     echo ""
 
-    # CCM status
     echo "=== CCM STATUS ==="
     kubectl get pods -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager
     echo ""
 
-    # System pods
     echo "=== SYSTEM PODS ==="
     kubectl get pods -n kube-system
     echo ""
@@ -562,17 +672,41 @@ main() {
 
     get_or_create_servers
 
-    # Wait for SSH on all servers
-    wait_for_ssh $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1"
+    # Wait for SSH on all servers in parallel
+    log_info "Waiting for SSH on all nodes in parallel..."
+    wait_for_ssh $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1" &
+    local control_ssh_pid=$!
+
+    declare -a ssh_pids
     for i in "${!WORKER_IPS[@]}"; do
-        wait_for_ssh "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))"
+        wait_for_ssh "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))" &
+        ssh_pids+=( $! )
     done
 
-    # Install prerequisites on all nodes
-    install_kubernetes_prerequisites $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1"
-    for i in "${!WORKER_IPS[@]}"; do
-        install_kubernetes_prerequisites "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))"
+    # Wait for all SSH connections
+    wait $control_ssh_pid || { log_error "Failed to connect to control plane via SSH"; exit 1; }
+    for pid in "${ssh_pids[@]}"; do
+        wait $pid || { log_error "Failed to connect to worker node via SSH"; exit 1; }
     done
+    log_success "All nodes are accessible via SSH"
+
+    # Install prerequisites on all nodes in parallel
+    log_info "Installing Kubernetes prerequisites on all nodes in parallel..."
+    install_kubernetes_prerequisites $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1" &
+    local control_prereq_pid=$!
+
+    declare -a prereq_pids
+    for i in "${!WORKER_IPS[@]}"; do
+        install_kubernetes_prerequisites "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))" &
+        prereq_pids+=( $! )
+    done
+
+    # Wait for all prerequisite installations
+    wait $control_prereq_pid || { log_error "Failed to install prerequisites on control plane"; exit 1; }
+    for pid in "${prereq_pids[@]}"; do
+        wait $pid || { log_error "Failed to install prerequisites on worker node"; exit 1; }
+    done
+    log_success "Kubernetes prerequisites installed on all nodes"
 
     initialize_control_plane
 

@@ -20,35 +20,15 @@ helm repo update
 ### Install the Chart
 
 ```bash
-# Create namespace
-kubectl create namespace kube-system
-
-# Install with inline values
-helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
-  --namespace kube-system \
-  --set cloudControllerManager.apiToken="YOUR_API_TOKEN" \
-  --set cloudControllerManager.region="syd"
-
-# Or install with a values file
-helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
-  --namespace kube-system \
-  --values values.yaml
-```
-
-### Using an Existing Secret
-
-If you prefer to manage the API token secret separately:
-
-```bash
-# Create the secret
+# Create secret with API token
 kubectl create secret generic binarylane-api-token \
   --from-literal=api-token="YOUR_API_TOKEN" \
   -n kube-system
 
-# Install using the existing secret
+# Install the chart
 helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
   --namespace kube-system \
-  --set cloudControllerManager.existingSecret="binarylane-api-token" \
+  --set cloudControllerManager.secret.name="binarylane-api-token" \
   --set cloudControllerManager.region="syd"
 ```
 
@@ -56,39 +36,39 @@ helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
 
 The following table lists the configurable parameters of the chart and their default values.
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `replicaCount` | Number of replicas | `1` |
-| `image.repository` | Image repository | `ghcr.io/oscarhermoso/binarylane-cloud-controller-manager` |
-| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
-| `image.tag` | Image tag | Chart appVersion |
-| `cloudControllerManager.apiToken` | BinaryLane API token (required if not using existingSecret) | `""` |
-| `cloudControllerManager.region` | BinaryLane region (e.g., syd, bne, per) | `""` |
-| `cloudControllerManager.apiUrl` | BinaryLane API URL | `https://api.binarylane.com.au` |
-| `cloudControllerManager.existingSecret` | Name of existing secret containing API token | `""` |
-| `cloudControllerManager.existingSecretKey` | Key in existing secret for API token | `api-token` |
-| `serviceAccount.create` | Create service account | `true` |
-| `serviceAccount.name` | Service account name | Generated from template |
-| `resources.limits.cpu` | CPU limit | `200m` |
-| `resources.limits.memory` | Memory limit | `128Mi` |
-| `resources.requests.cpu` | CPU request | `100m` |
-| `resources.requests.memory` | Memory request | `64Mi` |
-| `nodeSelector` | Node selector | `node-role.kubernetes.io/control-plane: ""` |
-| `tolerations` | Tolerations | Control plane tolerations |
-| `hostNetwork` | Use host network | `true` |
-| `priorityClassName` | Priority class | `system-cluster-critical` |
-| `verbosity` | Logging verbosity (0-10) | `2` |
-| `extraArgs` | Additional arguments | `[]` |
-| `extraEnv` | Additional environment variables | `[]` |
+| Parameter                            | Description                             | Default                                                    |
+| ------------------------------------ | --------------------------------------- | ---------------------------------------------------------- |
+| `replicaCount`                       | Number of replicas                      | `1`                                                        |
+| `image.repository`                   | Image repository                        | `ghcr.io/oscarhermoso/binarylane-cloud-controller-manager` |
+| `image.pullPolicy`                   | Image pull policy                       | `IfNotPresent`                                             |
+| `image.tag`                          | Image tag                               | Chart appVersion                                           |
+| `cloudControllerManager.secret.name` | Name of secret containing API token     | `""`                                                       |
+| `cloudControllerManager.secret.key`  | Key in secret for API token             | `api-token`                                                |
+| `cloudControllerManager.region`      | BinaryLane region (e.g., syd, bne, per) | `""`                                                       |
+| `cloudControllerManager.apiUrl`      | BinaryLane API URL                      | `https://api.binarylane.com.au`                            |
+| `serviceAccount.create`              | Create service account                  | `true`                                                     |
+| `serviceAccount.name`                | Service account name                    | Generated from template                                    |
+| `resources.limits.cpu`               | CPU limit                               | `200m`                                                     |
+| `resources.limits.memory`            | Memory limit                            | `128Mi`                                                    |
+| `resources.requests.cpu`             | CPU request                             | `100m`                                                     |
+| `resources.requests.memory`          | Memory request                          | `64Mi`                                                     |
+| `nodeSelector`                       | Node selector                           | `node-role.kubernetes.io/control-plane: ""`                |
+| `tolerations`                        | Tolerations                             | Control plane tolerations                                  |
+| `hostNetwork`                        | Use host network                        | `true`                                                     |
+| `priorityClassName`                  | Priority class                          | `system-cluster-critical`                                  |
+| `verbosity`                          | Logging verbosity (0-10)                | `2`                                                        |
+| `extraArgs`                          | Additional arguments                    | `[]`                                                       |
+| `extraEnv`                           | Additional environment variables        | `[]`                                                       |
 
 ## Examples
 
-### Basic Installation
+### Basic Configuration
 
 ```yaml
 # values.yaml
 cloudControllerManager:
-  apiToken: "your-api-token-here"
+  secret:
+    name: "binarylane-api-token"
   region: "syd"
 ```
 
@@ -97,7 +77,8 @@ cloudControllerManager:
 ```yaml
 # values-advanced.yaml
 cloudControllerManager:
-  existingSecret: "binarylane-api-token"
+  secret:
+    name: "binarylane-api-token"
   region: "syd"
   apiUrl: "https://api.binarylane.com.au"
 
