@@ -70,6 +70,11 @@ nodeSelector:
 
 # Tolerations for pod assignment
 tolerations:
+  # Tolerate control-plane taint (Kubernetes 1.24+)
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/control-plane
+    operator: Exists
+  # Tolerate master taint (legacy, pre-1.24)
   - effect: NoSchedule
     key: node-role.kubernetes.io/master
     operator: Exists

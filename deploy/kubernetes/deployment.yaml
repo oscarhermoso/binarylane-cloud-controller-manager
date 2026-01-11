@@ -29,26 +29,26 @@ spec:
                 matchLabels:
                   app: binarylane-cloud-controller-manager
       tolerations:
-        - key: 'node.cloudprovider.kubernetes.io/uninitialized'
-          value: 'true'
-          effect: 'NoSchedule'
-        - key: 'CriticalAddonsOnly'
-          operator: 'Exists'
-        - key: 'node-role.kubernetes.io/master'
-          effect: NoSchedule
-        - key: 'node-role.kubernetes.io/control-plane'
-          effect: NoSchedule
-        - key: node.kubernetes.io/not-ready
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
           operator: Exists
-          effect: NoSchedule
-        - key: node.kubernetes.io/not-ready
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
           operator: Exists
-          effect: NoExecute
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          operator: Exists
           tolerationSeconds: 120
-        - key: node.kubernetes.io/unreachable
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
           operator: Exists
-          effect: NoExecute
           tolerationSeconds: 120
+        - effect: NoSchedule
+          key: node.cloudprovider.kubernetes.io/uninitialized
+          operator: Exists
+        - effect: NoSchedule
+          key: node.kubernetes.io/not-ready
+          operator: Exists
       containers:
         - name: binarylane-cloud-controller-manager
           image: ghcr.io/oscarhermoso/binarylane-cloud-controller-manager:latest
