@@ -129,7 +129,7 @@ run_tests() {
         test_failed "Node Addresses" "Only $nodes_with_addresses/$total_nodes nodes have addresses"
     fi
 
-    log_info "Test 6: Verify zone/region information"
+    log_info "Test 6: Verify zone information"
     local nodes_with_zone=$(kubectl get nodes -o json 2>/dev/null | jq -r '.items[] | select(.metadata.labels["topology.kubernetes.io/region"]) | .metadata.name' | wc -l)
     if [ "$nodes_with_zone" -eq "$total_nodes" ]; then
         test_passed "All nodes have zone/region labels"

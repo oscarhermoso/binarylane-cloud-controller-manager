@@ -11,13 +11,10 @@ import (
 	cloudprovider "k8s.io/cloud-provider"
 )
 
-var (
-	_ cloudprovider.InstancesV2 = &instancesV2{}
-)
+var _ cloudprovider.InstancesV2 = &instancesV2{}
 
 type instancesV2 struct {
 	client *binarylane.BinaryLaneClient
-	region string
 }
 
 func (i *instancesV2) InstanceExists(ctx context.Context, node *v1.Node) (bool, error) {

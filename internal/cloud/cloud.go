@@ -18,11 +18,10 @@ var _ cloudprovider.Interface = &Cloud{}
 // Cloud is the BinaryLane implementation of the cloud provider interface
 type Cloud struct {
 	client *binarylane.BinaryLaneClient
-	region string
 }
 
 // NewCloud creates a new BinaryLane cloud provider
-func NewCloud(token, region string) (cloudprovider.Interface, error) {
+func NewCloud(token string) (cloudprovider.Interface, error) {
 	if token == "" {
 		return nil, fmt.Errorf("BinaryLane API token is required")
 	}
@@ -34,7 +33,6 @@ func NewCloud(token, region string) (cloudprovider.Interface, error) {
 
 	return &Cloud{
 		client: client,
-		region: region,
 	}, nil
 }
 
@@ -48,7 +46,7 @@ func (c *Cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
 	return nil, false
 }
 
-// Instances returns an instances interface. Also returns true if the interface is supported, false otherwise.
+// This method will not be called because InstancesV2 is enabled.
 func (c *Cloud) Instances() (cloudprovider.Instances, bool) {
 	return nil, false
 }
@@ -59,15 +57,12 @@ func (c *Cloud) Instances() (cloudprovider.Instances, bool) {
 func (c *Cloud) InstancesV2() (cloudprovider.InstancesV2, bool) {
 	return &instancesV2{
 		client: c.client,
-		region: c.region,
 	}, true
 }
 
-// Zones returns a zones interface. Also returns true if the interface is supported, false otherwise.
+// This method will not be called because InstancesV2 is enabled.
 func (c *Cloud) Zones() (cloudprovider.Zones, bool) {
-	return &zones{
-		region: c.region,
-	}, true
+	return nil, false
 }
 
 // Clusters returns a clusters interface. Also returns true if the interface is supported, false otherwise.

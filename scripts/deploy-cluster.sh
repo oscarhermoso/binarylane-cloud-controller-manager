@@ -344,68 +344,6 @@ wait_for_ssh() {
     return 1
 }
 
-install_kubernetes_prerequisites() {
-    local ip="$1"
-    local hostname="$2"
-
-    log_info "Installing Kubernetes prerequisites on $hostname ($ip)..."
-
-    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$ip bash <<'EOF'
-set -euo pipefail
-
-# Set hostname
-hostname $(cat /etc/hostname)
-
-# Disable swap
-swapoff -a
-sed -i '/ swap / s/^/#/' /etc/fstab
-
-# Load kernel modules
-cat <<MODULES > /etc/modules-load.d/k8s.conf
-overlay
-br_netfilter
-MODULES
-
-modprobe overlay
-modprobe br_netfilter
-
-# Set sysctl parameters
-cat <<SYSCTL > /etc/sysctl.d/k8s.conf
-net.bridge.bridge-nf-call-iptables  = 1
-net.bridge.bridge-nf-call-ip6tables = 1
-net.ipv4.ip_forward                 = 1
-SYSCTL
-
-sysctl --system
-
-# Install containerd
-apt-get update
-apt-get install -y containerd
-mkdir -p /etc/containerd
-containerd config default > /etc/containerd/config.toml
-sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
-systemctl restart containerd
-systemctl enable containerd
-
-# Install kubeadm, kubelet, kubectl
-apt-get install -y apt-transport-https ca-certificates curl gpg
-mkdir -p /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --batch --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' > /etc/apt/sources.list.d/kubernetes.list
-apt-get update
-apt-get install -y kubelet=1.29.15-1.1 kubeadm=1.29.15-1.1 kubectl=1.29.15-1.1
-apt-mark hold kubelet kubeadm kubectl
-
-# Configure kubelet for external cloud provider
-mkdir -p /etc/default
-echo 'KUBELET_EXTRA_ARGS="--cloud-provider=external"' > /etc/default/kubelet
-systemctl daemon-reload
-systemctl restart kubelet
-EOF
-
-    log_success "Kubernetes prerequisites installed on $hostname"
-}
-
 initialize_control_plane() {
     log_info "Initializing Kubernetes control plane..."
 
@@ -519,7 +457,6 @@ deploy_cloud_controller_manager() {
         helm install binarylane-ccm charts/binarylane-cloud-controller-manager \
             --namespace kube-system \
             --set cloudControllerManager.secret.name=binarylane-api-token \
-            --set cloudControllerManager.region=$REGION \
             --set image.repository=docker.io/library/binarylane-cloud-controller-manager \
             --set image.tag=local \
             --set image.pullPolicy=Never
@@ -689,24 +626,6 @@ main() {
         wait $pid || { log_error "Failed to connect to worker node via SSH"; exit 1; }
     done
     log_success "All nodes are accessible via SSH"
-
-    # Install prerequisites on all nodes in parallel
-    log_info "Installing Kubernetes prerequisites on all nodes in parallel..."
-    install_kubernetes_prerequisites $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1" &
-    local control_prereq_pid=$!
-
-    declare -a prereq_pids
-    for i in "${!WORKER_IPS[@]}"; do
-        install_kubernetes_prerequisites "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))" &
-        prereq_pids+=( $! )
-    done
-
-    # Wait for all prerequisite installations
-    wait $control_prereq_pid || { log_error "Failed to install prerequisites on control plane"; exit 1; }
-    for pid in "${prereq_pids[@]}"; do
-        wait $pid || { log_error "Failed to install prerequisites on worker node"; exit 1; }
-    done
-    log_success "Kubernetes prerequisites installed on all nodes"
 
     initialize_control_plane
 

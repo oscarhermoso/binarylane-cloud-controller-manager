@@ -7,7 +7,7 @@ templates:
 tests:
   - it: should create a deployment with correct replicas
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
     asserts:
       - isKind:
           of: Deployment
@@ -17,62 +17,56 @@ tests:
 
   - it: should use correct image
     set:
-      cloudControllerManager.apiToken: "test-token"
-      image.repository: "custom-repo"
-      image.tag: "v1.0.0"
+      cloudControllerManager.apiToken: 'test-token'
+      image.repository: 'custom-repo'
+      image.tag: 'v1.0.0'
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "custom-repo:v1.0.0"
+          value: 'custom-repo:v1.0.0'
 
   - it: should create secret when not using existing secret
     template: secret.yaml
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
     asserts:
       - isKind:
           of: Secret
       - equal:
           path: stringData.api-token
-          value: "test-token"
+          value: 'test-token'
 
   - it: should not create secret when using existing secret
     template: secret.yaml
     set:
-      cloudControllerManager.existingSecret: "my-secret"
+      cloudControllerManager.existingSecret: 'my-secret'
     asserts:
       - hasDocuments:
           count: 0
 
   - it: should have correct environment variables
     set:
-      cloudControllerManager.apiToken: "test-token"
-      cloudControllerManager.region: "syd"
-      cloudControllerManager.apiUrl: "https://api.test.com"
+      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.apiUrl: 'https://api.test.com'
     asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: BINARYLANE_REGION
-            value: "syd"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
             name: BINARYLANE_API_URL
-            value: "https://api.test.com"
+            value: 'https://api.test.com'
 
   - it: should use correct service account
     set:
-      cloudControllerManager.apiToken: "test-token"
-      serviceAccount.name: "custom-sa"
+      cloudControllerManager.apiToken: 'test-token'
+      serviceAccount.name: 'custom-sa'
     asserts:
       - equal:
           path: spec.template.spec.serviceAccountName
-          value: "custom-sa"
+          value: 'custom-sa'
 
   - it: should apply tolerations
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
     asserts:
       - contains:
           path: spec.template.spec.tolerations
@@ -83,16 +77,16 @@ tests:
 
   - it: should apply node selector
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
     asserts:
       - equal:
           path: spec.template.spec.nodeSelector
           value:
-            node-role.kubernetes.io/control-plane: ""
+            node-role.kubernetes.io/control-plane: ''
 
   - it: should use host network
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
     asserts:
       - equal:
           path: spec.template.spec.hostNetwork
@@ -100,7 +94,7 @@ tests:
 
   - it: should have security context
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
     asserts:
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
@@ -112,7 +106,7 @@ tests:
   - it: should create RBAC resources
     template: rbac.yaml
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
     asserts:
       - hasDocuments:
           count: 2
@@ -125,32 +119,32 @@ tests:
 
   - it: should apply extra args
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
       extraArgs:
-        - "--configure-cloud-routes=true"
-        - "--cluster-cidr=10.244.0.0/16"
+        - '--configure-cloud-routes=true'
+        - '--cluster-cidr=10.244.0.0/16'
     asserts:
       - contains:
           path: spec.template.spec.containers[0].command
-          content: "--configure-cloud-routes=true"
+          content: '--configure-cloud-routes=true'
       - contains:
           path: spec.template.spec.containers[0].command
-          content: "--cluster-cidr=10.244.0.0/16"
+          content: '--cluster-cidr=10.244.0.0/16'
 
   - it: should set resource limits
     set:
-      cloudControllerManager.apiToken: "test-token"
+      cloudControllerManager.apiToken: 'test-token'
       resources:
         limits:
-          cpu: "500m"
-          memory: "256Mi"
+          cpu: '500m'
+          memory: '256Mi'
         requests:
-          cpu: "200m"
-          memory: "128Mi"
+          cpu: '200m'
+          memory: '128Mi'
     asserts:
       - equal:
           path: spec.template.spec.containers[0].resources.limits.cpu
-          value: "500m"
+          value: '500m'
       - equal:
           path: spec.template.spec.containers[0].resources.requests.cpu
-          value: "200m"
+          value: '200m'

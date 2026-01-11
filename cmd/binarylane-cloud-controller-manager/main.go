@@ -53,20 +53,15 @@ func cloudInitializer(config *config.CompletedConfig) cloudprovider.Interface {
 		klog.Fatalf("BINARYLANE_ACCESS_TOKEN environment variable is required")
 	}
 
-	region := os.Getenv("BINARYLANE_REGION")
-	if region == "" {
-		klog.Fatalf("BINARYLANE_REGION environment variable is required")
-	}
-
-	cloudProvider, err := cloud.NewCloud(token, region)
+	cloudProvider, err := cloud.NewCloud(token)
 	if err != nil {
 		klog.Fatalf("failed to initialize BinaryLane cloud provider: %v", err)
 	}
 
 	cloudProvider.Initialize(config.ClientBuilder, wait.NeverStop)
 
-	klog.Infof("BinaryLane cloud controller manager initialized (provider: %s, region: %s)",
-		cloudConfig.Name, region)
+	klog.Infof("BinaryLane cloud controller manager initialized (provider: %s)",
+		cloudConfig.Name)
 
 	return cloudProvider
 }

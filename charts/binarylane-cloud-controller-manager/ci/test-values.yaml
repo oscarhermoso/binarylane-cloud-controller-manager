@@ -2,7 +2,6 @@
 cloudControllerManager:
   secret:
     name: binarylane-api-token
-  region: syd
 
 # Create a test secret for CI
 createTestSecret: true

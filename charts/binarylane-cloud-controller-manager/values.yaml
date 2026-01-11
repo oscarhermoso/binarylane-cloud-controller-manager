@@ -23,8 +23,6 @@ cloudControllerManager:
   secret:
     name: ''
     key: 'api-token'
-  # BinaryLane region (e.g., "syd", "bne", "per")
-  region: ''
   # BinaryLane API URL
   apiUrl: 'https://api.binarylane.com.au'
 
