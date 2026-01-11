@@ -175,6 +175,9 @@ create_server() {
         return 1
     fi
 
+    # Generate random password to avoid email notifications
+    local random_password=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
+
     local data=$(cat <<EOF
 {
   "name": "$name",
@@ -182,6 +185,7 @@ create_server() {
   "size": "$SERVER_SIZE",
   "image": $image_id,
   "ssh_keys": [$SSH_KEY_ID],
+  "password": "$random_password",
   "backups": false
 }
 EOF
@@ -459,7 +463,7 @@ deploy_cloud_controller_manager() {
             --namespace kube-system \
             --set cloudControllerManager.secret.name=binarylane-api-token \
             --set cloudControllerManager.region=$REGION \
-            --set image.repository=ghcr.io/oscarhermoso/binarylane-cloud-controller-manager \
+            --set image.repository=binarylane-cloud-controller-manager \
             --set image.tag=local \
             --set image.pullPolicy=Never
 
