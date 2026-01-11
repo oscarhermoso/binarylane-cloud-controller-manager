@@ -11,13 +11,16 @@ import (
 	cloudprovider "k8s.io/cloud-provider"
 )
 
-var (
-	_ cloudprovider.InstancesV2 = &instancesV2{}
-)
+var _ cloudprovider.InstancesV2 = &instancesV2{}
+
+// cloudClientInterface defines the methods needed from the cloud client
+type cloudClientInterface interface {
+	GetServer(ctx context.Context, serverID int64) (*binarylane.Server, error)
+	GetServerByName(ctx context.Context, name string) (*binarylane.Server, error)
+}
 
 type instancesV2 struct {
-	client *binarylane.BinaryLaneClient
-	region string
+	client cloudClientInterface
 }
 
 func (i *instancesV2) InstanceExists(ctx context.Context, node *v1.Node) (bool, error) {
@@ -56,12 +59,13 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 	}
 
 	for _, net := range server.Networks.V4 {
-		if net.Type == "public" {
+		switch net.Type {
+		case "public":
 			addresses = append(addresses, v1.NodeAddress{
 				Type:    v1.NodeExternalIP,
 				Address: net.IpAddress,
 			})
-		} else {
+		case "private":
 			addresses = append(addresses, v1.NodeAddress{
 				Type:    v1.NodeInternalIP,
 				Address: net.IpAddress,
@@ -70,20 +74,34 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 	}
 
 	for _, net := range server.Networks.V6 {
-		if net.Type == "public" {
+		switch net.Type {
+		case "public":
 			addresses = append(addresses, v1.NodeAddress{
 				Type:    v1.NodeExternalIP,
+				Address: net.IpAddress,
+			})
+		case "private":
+			addresses = append(addresses, v1.NodeAddress{
+				Type:    v1.NodeInternalIP,
 				Address: net.IpAddress,
 			})
 		}
 	}
 
+	labels := make(map[string]string)
+
+	// Server host display name will be empty for dedicated servers
+	if server.Host.DisplayName != "" {
+		labels["binarylane.com/host"] = server.Host.DisplayName
+	}
+
 	return &cloudprovider.InstanceMetadata{
-		ProviderID:    providerID,
-		NodeAddresses: addresses,
-		InstanceType:  server.Size.Slug,
-		Zone:          server.Region.Slug,
-		Region:        server.Region.Slug,
+		ProviderID:       providerID,
+		NodeAddresses:    addresses,
+		InstanceType:     server.Size.Slug,
+		Zone:             server.Region.Slug,
+		Region:           server.Region.Slug,
+		AdditionalLabels: labels,
 	}, nil
 }
 

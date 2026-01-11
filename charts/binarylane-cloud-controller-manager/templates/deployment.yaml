@@ -58,10 +58,6 @@ spec:
                 secretKeyRef:
                   name: {{ required "cloudControllerManager.secret.name is required" .Values.cloudControllerManager.secret.name }}
                   key: {{ .Values.cloudControllerManager.secret.key }}
-            {{- if .Values.cloudControllerManager.region }}
-            - name: BINARYLANE_REGION
-              value: {{ .Values.cloudControllerManager.region | quote }}
-            {{- end }}
             {{- if .Values.cloudControllerManager.apiUrl }}
             - name: BINARYLANE_API_URL
               value: {{ .Values.cloudControllerManager.apiUrl | quote }}
