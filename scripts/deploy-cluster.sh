@@ -415,6 +415,14 @@ sysctl --system
 # Enable kubelet service
 systemctl enable kubelet
 
+# Configure kubelet to use external cloud provider
+mkdir -p /etc/systemd/system/kubelet.service.d
+cat > /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf <<'EOL'
+[Service]
+Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"
+EOL
+systemctl daemon-reload
+
 echo "Kubernetes installation complete"
 EOF
 
@@ -433,11 +441,25 @@ initialize_control_plane() {
     ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP bash <<EOF
 set -euo pipefail
 
-kubeadm init \
-    --pod-network-cidr=$POD_NETWORK_CIDR \
-    --apiserver-cert-extra-sans=$CONTROL_PLANE_IP \
-    --control-plane-endpoint=$CONTROL_PLANE_IP \
-    --ignore-preflight-errors=NumCPU
+# Create kubeadm config with cloud provider settings
+cat > /tmp/kubeadm-config.yaml <<'EOL'
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+nodeRegistration:
+  kubeletExtraArgs:
+    cloud-provider: external
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+networking:
+  podSubnet: $POD_NETWORK_CIDR
+controlPlaneEndpoint: "$CONTROL_PLANE_IP"
+apiServer:
+  certSANs:
+  - $CONTROL_PLANE_IP
+EOL
+
+kubeadm init --config /tmp/kubeadm-config.yaml --ignore-preflight-errors=NumCPU
 
 mkdir -p /root/.kube
 cp /etc/kubernetes/admin.conf /root/.kube/config
@@ -476,9 +498,31 @@ join_worker_nodes() {
 
             log_info "Joining worker: $worker_name ($worker_ip)"
 
+            # Get CA cert hash and token from control plane
+            local ca_hash=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
+                "openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'")
+            local token=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
+                "kubeadm token create")
+
             ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$worker_ip bash <<EOF
 set -euo pipefail
-$join_command
+
+# Create kubeadm join config with cloud provider settings
+cat > /tmp/kubeadm-join-config.yaml <<'EOL'
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: "$CONTROL_PLANE_IP:6443"
+    token: "$token"
+    caCertHashes:
+    - "sha256:$ca_hash"
+nodeRegistration:
+  kubeletExtraArgs:
+    cloud-provider: external
+EOL
+
+kubeadm join --config /tmp/kubeadm-join-config.yaml
 EOF
 
             log_success "Worker $worker_name joined"
@@ -589,18 +633,8 @@ deploy_cloud_controller_manager() {
         log_success "CCM deployed"
     fi
 
-    # Set provider IDs for existing nodes
-    log_info "Setting provider IDs for nodes..."
-
-    kubectl patch node ${CLUSTER_NAME}-control-1 -p "{\"spec\":{\"providerID\":\"binarylane://$CONTROL_PLANE_ID\"}}" 2>/dev/null || true
-
-    for i in "${!WORKER_IDS[@]}"; do
-        local worker_id="${WORKER_IDS[$i]}"
-        local worker_name="${CLUSTER_NAME}-worker-$((i+1))"
-        kubectl patch node $worker_name -p "{\"spec\":{\"providerID\":\"binarylane://$worker_id\"}}" 2>/dev/null || true
-    done
-
-    log_success "Provider IDs set"
+    # CCM will automatically set provider IDs and node metadata
+    log_success "CCM deployed and will initialize nodes automatically"
 }
 
 validate_cluster() {

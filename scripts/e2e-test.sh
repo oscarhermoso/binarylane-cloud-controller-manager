@@ -193,8 +193,8 @@ main() {
     log_success "Cluster deployed successfully"
     echo ""
 
-    log_info "Waiting for CCM to initialize nodes (30s)..."
-    sleep 30
+    log_info "Waiting for CCM to initialize nodes (90s)..."
+    sleep 90
 
     run_tests
 
