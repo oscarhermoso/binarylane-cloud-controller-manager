@@ -77,6 +77,30 @@ done
 
 log_info "Cluster deletion complete"
 
+# Clean up VPC
+log_info "Cleaning up VPC: $CLUSTER_NAME-vpc"
+VPC_ID=$(curl -s -X GET "https://api.binarylane.com.au/v2/vpcs" \
+    -H "Authorization: Bearer $BINARYLANE_API_TOKEN" | \
+    jq -r --arg name "$CLUSTER_NAME-vpc" '.vpcs[]? | select(.name == $name) | .id')
+
+if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "null" ]; then
+    HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/delete_vpc_response.json -X DELETE "https://api.binarylane.com.au/v2/vpcs/$VPC_ID" \
+        -H "Authorization: Bearer $BINARYLANE_API_TOKEN")
+
+    DELETE_RESPONSE=$(cat /tmp/delete_vpc_response.json)
+    rm -f /tmp/delete_vpc_response.json
+
+    if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+        log_info "✓ Deleted VPC (ID: $VPC_ID)"
+    elif [ "$HTTP_CODE" = "404" ]; then
+        log_warn "VPC not found (already deleted)"
+    else
+        log_error "Failed to delete VPC (HTTP $HTTP_CODE): $(echo "$DELETE_RESPONSE" | jq -r '.message // .error // "Unknown error"')"
+    fi
+else
+    log_info "No VPC found for cluster"
+fi
+
 # Clean up SSH key from BinaryLane if SSH_KEY_NAME is set
 if [ -n "${SSH_KEY_NAME:-}" ]; then
     log_info "Cleaning up SSH key: $SSH_KEY_NAME"

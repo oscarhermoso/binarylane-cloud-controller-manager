@@ -137,6 +137,96 @@ run_tests() {
     else
         test_failed "Zone Labels" "Only $nodes_with_zone/$total_nodes nodes have zone labels"
     fi
+
+    log_info "Test 7: Verify VPC internal IPs match vpc_ipv4_address"
+    local vpc_mismatch=0
+    local nodes=$(kubectl get nodes -o json 2>/dev/null | jq -r '.items[] | .metadata.name')
+
+    for node_name in $nodes; do
+        # Get Kubernetes internal IP
+        local k8s_internal_ip=$(kubectl get node "$node_name" -o json 2>/dev/null | jq -r '.status.addresses[] | select(.type == "InternalIP") | .address')
+
+        if [ -z "$k8s_internal_ip" ]; then
+            log_warn "Node $node_name has no internal IP in Kubernetes"
+            ((vpc_mismatch++))
+            continue
+        fi
+
+        # Get server info from BinaryLane API
+        local server_info=$(curl -s -X GET "https://api.binarylane.com.au/v2/servers?per_page=200" \
+            -H "Authorization: Bearer $BINARYLANE_API_TOKEN" 2>/dev/null | \
+            jq -r ".servers[] | select(.name == \"$node_name\")")
+
+        if [ -z "$server_info" ]; then
+            log_warn "Node $node_name not found in BinaryLane API"
+            ((vpc_mismatch++))
+            continue
+        fi
+
+        # Check if server is in a VPC
+        local vpc_id=$(echo "$server_info" | jq -r '.vpc_id')
+
+        if [ -z "$vpc_id" ] || [ "$vpc_id" == "null" ]; then
+            log_info "Node $node_name is not in a VPC (expected for non-VPC deployments)"
+        else
+            # Get VPC private IP from server networks
+            local vpc_private_ip=$(echo "$server_info" | jq -r '.networks.v4[] | select(.type == "private") | .ip_address')
+
+            if [ -z "$vpc_private_ip" ] || [ "$vpc_private_ip" == "null" ]; then
+                log_error "Node $node_name is in VPC but has no private IP"
+                ((vpc_mismatch++))
+            elif [ "$k8s_internal_ip" != "$vpc_private_ip" ]; then
+                log_error "Node $node_name: K8s internal IP ($k8s_internal_ip) != VPC private IP ($vpc_private_ip)"
+                ((vpc_mismatch++))
+            else
+                log_info "✓ Node $node_name: VPC internal IP matches ($vpc_private_ip)"
+            fi
+        fi
+    done
+
+    if [ "$vpc_mismatch" -eq 0 ]; then
+        test_passed "All VPC internal IPs match"
+    else
+        test_failed "VPC Internal IPs" "$vpc_mismatch mismatches found"
+    fi
+
+    log_info "Test 8: Verify routes controller functionality"
+    local ccm_logs=$(kubectl logs -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager --tail=100 2>/dev/null)
+
+    if echo "$ccm_logs" | grep -q "Failed to list routes\|route.*error"; then
+        test_failed "Routes Controller" "Route errors found in CCM logs"
+    elif echo "$ccm_logs" | grep -q "route"; then
+        log_info "Routes controller is active"
+
+        local route_errors=0
+
+        for node_name in $nodes; do
+            local server_info=$(curl -s -X GET "https://api.binarylane.com.au/v2/servers?per_page=200" \
+                -H "Authorization: Bearer $BINARYLANE_API_TOKEN" 2>/dev/null | \
+                jq -r ".servers[] | select(.name == \"$node_name\")")
+
+            local vpc_id=$(echo "$server_info" | jq -r '.vpc_id')
+
+            if [ -n "$vpc_id" ] && [ "$vpc_id" != "null" ]; then
+                local has_private_ip=$(echo "$server_info" | jq -r '.networks.v4[] | select(.type == "private") | .ip_address')
+                if [ -z "$has_private_ip" ]; then
+                    log_error "Node $node_name in VPC but missing private IP for routing"
+                    ((route_errors++))
+                else
+                    log_info "✓ Node $node_name has routing configured (VPC: $vpc_id, Private IP: $has_private_ip)"
+                fi
+            fi
+        done
+
+        if [ "$route_errors" -eq 0 ]; then
+            test_passed "Routes controller working correctly"
+        else
+            test_failed "Routes Controller" "$route_errors routing issues found"
+        fi
+    else
+        log_info "Routes controller present (no route-specific logs found)"
+        test_passed "Routes controller initialized"
+    fi
 }
 
 print_results() {

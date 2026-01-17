@@ -9,19 +9,17 @@ import (
 )
 
 const (
-	// ProviderName is the name of the BinaryLane cloud provider
 	ProviderName = "binarylane"
 )
 
 var _ cloudprovider.Interface = &Cloud{}
 
-// Cloud is the BinaryLane implementation of the cloud provider interface
 type Cloud struct {
 	client *binarylane.BinaryLaneClient
+	cidr   string
 }
 
-// NewCloud creates a new BinaryLane cloud provider
-func NewCloud(token string) (cloudprovider.Interface, error) {
+func NewCloud(token string, cidr string) (cloudprovider.Interface, error) {
 	if token == "" {
 		return nil, fmt.Errorf("BinaryLane API token is required")
 	}
@@ -33,62 +31,57 @@ func NewCloud(token string) (cloudprovider.Interface, error) {
 
 	return &Cloud{
 		client: client,
+		cidr:   cidr,
 	}, nil
 }
 
-// Initialize provides the cloud with a kubernetes client builder and may spawn goroutines
-// to perform housekeeping or run custom controllers specific to the cloud provider.
 func (c *Cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, stop <-chan struct{}) {
 }
 
-// LoadBalancer returns a load balancer interface. Also returns true if the interface is supported, false otherwise.
 func (c *Cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
 	return nil, false
 }
 
-// This method will not be called because InstancesV2 is enabled.
 func (c *Cloud) Instances() (cloudprovider.Instances, bool) {
+	// Replaced by InstancesV2
 	return nil, false
 }
 
-// InstancesV2 is an implementation for instances and should only be implemented by external cloud providers.
-// Implementing InstancesV2 is behaviorally identical to Instances but is optimized to significantly reduce
-// API calls to the cloud provider when registering and syncing nodes.
 func (c *Cloud) InstancesV2() (cloudprovider.InstancesV2, bool) {
 	return &instancesV2{
 		client: c.client,
 	}, true
 }
 
-// This method will not be called because InstancesV2 is enabled.
 func (c *Cloud) Zones() (cloudprovider.Zones, bool) {
+	// Replaced by InstancesV2
 	return nil, false
 }
 
-// Clusters returns a clusters interface. Also returns true if the interface is supported, false otherwise.
 func (c *Cloud) Clusters() (cloudprovider.Clusters, bool) {
 	return nil, false
 }
 
-// Routes returns a routes interface along with whether the interface is supported.
 func (c *Cloud) Routes() (cloudprovider.Routes, bool) {
-	return nil, false
+	if c.cidr == "" {
+		return nil, false
+	}
+	return &routes{
+		client: c.client,
+		cidr:   c.cidr,
+	}, true
 }
 
-// ProviderName returns the cloud provider ID.
 func (c *Cloud) ProviderName() string {
 	return ProviderName
 }
 
-// HasClusterID returns true if a ClusterID is required and set
 func (c *Cloud) HasClusterID() bool {
 	return false
 }
 
 func init() {
 	cloudprovider.RegisterCloudProvider(ProviderName, func(config io.Reader) (cloudprovider.Interface, error) {
-		// This function is called by the cloud provider framework
-		// In practice, we'll use NewCloud directly with environment variables
 		return nil, fmt.Errorf("use NewCloud function to create BinaryLane cloud provider")
 	})
 }
