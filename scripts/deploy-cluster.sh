@@ -336,7 +336,7 @@ wait_for_ssh() {
     done
 
     echo "" >&2  # New line after dots
-    log_error "SSH did not become ready on $hostname ($ip) after $((max_attempts * 5)) seconds"
+    log_error "SSH did not become ready on $hostname ($ip) after $((max_attempts * 2)) seconds"
     log_error "Please verify:"
     log_error "  1. SSH key is added to your BinaryLane account"
     log_error "  2. Server can be accessed at: ssh root@$ip"
