@@ -63,6 +63,9 @@ func (c *Cloud) Clusters() (cloudprovider.Clusters, bool) {
 }
 
 func (c *Cloud) Routes() (cloudprovider.Routes, bool) {
+	if c.cidr == "" {
+		return nil, false
+	}
 	return &routes{
 		client: c.client,
 		cidr:   c.cidr,

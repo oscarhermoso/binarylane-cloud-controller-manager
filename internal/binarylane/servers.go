@@ -21,13 +21,16 @@ func (c *BinaryLaneClient) ListServers(ctx context.Context) ([]Server, error) {
 		}
 
 		if resp.StatusCode != 200 {
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			body, readErr := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if readErr != nil {
+				return nil, fmt.Errorf("API error (status %d), failed to read response: %w", resp.StatusCode, readErr)
+			}
 			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 		}
 
 		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response: %w", err)
 		}
@@ -63,7 +66,10 @@ func (c *BinaryLaneClient) GetServer(ctx context.Context, serverID int64) (*Serv
 		return nil, ErrServerNotFound
 	}
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("API error (status %d), failed to read response: %w", resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
@@ -95,7 +101,10 @@ func (c *BinaryLaneClient) GetServerByName(ctx context.Context, name string) (*S
 	}()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("API error (status %d), failed to read response: %w", resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 

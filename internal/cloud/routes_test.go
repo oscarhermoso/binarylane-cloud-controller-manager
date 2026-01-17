@@ -66,20 +66,6 @@ func TestListRoutes(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name: "no CIDR configured",
-			servers: map[int64]*binarylane.Server{
-				1: {
-					Id:    1,
-					Name:  "test-cluster-node-1",
-					VpcId: &vpcID,
-				},
-			},
-			vpcs:          map[int64]*binarylane.Vpc{},
-			cidr:          "",
-			wantErr:       true,
-			wantErrPrefix: "cluster CIDR not configured",
-		},
-		{
 			name: "filters servers by cluster name",
 			servers: map[int64]*binarylane.Server{
 				1: {

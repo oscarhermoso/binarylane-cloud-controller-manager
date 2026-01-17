@@ -69,11 +69,7 @@ func (m *mockClient) UpdateVpc(ctx context.Context, vpcID int64, req binarylane.
 	if req.RouteEntries != nil {
 		vpc.RouteEntries = make([]binarylane.RouteEntry, len(*req.RouteEntries))
 		for i, r := range *req.RouteEntries {
-			vpc.RouteEntries[i] = binarylane.RouteEntry{
-				Router:      r.Router,
-				Destination: r.Destination,
-				Description: r.Description,
-			}
+			vpc.RouteEntries[i] = binarylane.RouteEntry(r)
 		}
 	}
 
@@ -327,5 +323,35 @@ func TestParseProviderID(t *testing.T) {
 				t.Errorf("parseProviderID() = %v, want %v", gotID, tt.wantID)
 			}
 		})
+	}
+}
+
+func TestRoutesWithoutCIDR(t *testing.T) {
+	cloud := &Cloud{
+		client: nil,
+		cidr:   "",
+	}
+
+	routes, enabled := cloud.Routes()
+	if enabled {
+		t.Error("Routes() should be disabled when CIDR is not configured")
+	}
+	if routes != nil {
+		t.Error("Routes() should return nil when disabled")
+	}
+}
+
+func TestRoutesWithCIDR(t *testing.T) {
+	cloud := &Cloud{
+		client: nil,
+		cidr:   "10.244.0.0/16",
+	}
+
+	routes, enabled := cloud.Routes()
+	if !enabled {
+		t.Error("Routes() should be enabled when CIDR is configured")
+	}
+	if routes == nil {
+		t.Error("Routes() should return non-nil when enabled")
 	}
 }

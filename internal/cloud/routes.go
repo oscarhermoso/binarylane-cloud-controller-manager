@@ -19,10 +19,6 @@ type routes struct {
 }
 
 func (r *routes) ListRoutes(ctx context.Context, clusterName string) ([]*cloudprovider.Route, error) {
-	if r.cidr == "" {
-		return nil, fmt.Errorf("cluster CIDR not configured")
-	}
-
 	servers, err := r.client.ListServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list servers: %w", err)
@@ -43,6 +39,10 @@ func (r *routes) ListRoutes(ctx context.Context, clusterName string) ([]*cloudpr
 				}
 			}
 		}
+	}
+
+	if len(clusterVpcs) == 0 {
+		return []*cloudprovider.Route{}, nil
 	}
 
 	vpcRoutes := make(map[int64][]*cloudprovider.Route)
@@ -78,10 +78,6 @@ func (r *routes) ListRoutes(ctx context.Context, clusterName string) ([]*cloudpr
 }
 
 func (r *routes) CreateRoute(ctx context.Context, clusterName string, nameHint string, route *cloudprovider.Route) error {
-	if r.cidr == "" {
-		return fmt.Errorf("cluster CIDR not configured")
-	}
-
 	targetNode := string(route.TargetNode)
 	server, err := r.client.GetServerByName(ctx, targetNode)
 	if err != nil {
@@ -119,11 +115,7 @@ func (r *routes) CreateRoute(ctx context.Context, clusterName string, nameHint s
 
 	newRouteEntries := make([]binarylane.RouteEntryRequest, len(vpc.RouteEntries))
 	for i, re := range vpc.RouteEntries {
-		newRouteEntries[i] = binarylane.RouteEntryRequest{
-			Router:      re.Router,
-			Destination: re.Destination,
-			Description: re.Description,
-		}
+		newRouteEntries[i] = binarylane.RouteEntryRequest(re)
 	}
 
 	newRouteEntries = append(newRouteEntries, binarylane.RouteEntryRequest{
@@ -183,11 +175,7 @@ func (r *routes) DeleteRoute(ctx context.Context, clusterName string, route *clo
 			found = true
 			continue
 		}
-		newRouteEntries = append(newRouteEntries, binarylane.RouteEntryRequest{
-			Router:      re.Router,
-			Destination: re.Destination,
-			Description: re.Description,
-		})
+		newRouteEntries = append(newRouteEntries, binarylane.RouteEntryRequest(re))
 	}
 
 	if !found {

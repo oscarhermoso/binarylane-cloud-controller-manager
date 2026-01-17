@@ -25,7 +25,10 @@ func (c *BinaryLaneClient) GetVpc(ctx context.Context, vpcID int64) (*Vpc, error
 		return nil, ErrVpcNotFound
 	}
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("API error (status %d), failed to read response: %w", resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
@@ -57,7 +60,10 @@ func (c *BinaryLaneClient) UpdateVpc(ctx context.Context, vpcID int64, req Updat
 		return nil, ErrVpcNotFound
 	}
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("API error (status %d), failed to read response: %w", resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
