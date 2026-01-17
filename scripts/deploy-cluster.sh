@@ -3,7 +3,7 @@ set -euo pipefail
 
 CLUSTER_NAME="${CLUSTER_NAME:-binarylane-ccm}"
 REGION="${REGION:-per}"
-SERVER_SIZE="${SERVER_SIZE:-std-2vcpu}"
+SERVER_SIZE="${SERVER_SIZE:-std-min}"
 CONTROL_PLANE_COUNT="${CONTROL_PLANE_COUNT:-1}"
 WORKER_COUNT="${WORKER_COUNT:-2}"
 K8S_VERSION="${K8S_VERSION:-1.29.15}"
@@ -319,24 +319,24 @@ wait_for_ssh() {
     log_info "Waiting for SSH on $hostname ($ip)..."
 
     while [ $attempt -lt $max_attempts ]; do
-        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes root@$ip "echo 'SSH ready'" 2>/dev/null; then
+        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o BatchMode=yes root@$ip "echo 'SSH ready'" 2>/dev/null; then
             echo "" >&2  # New line after dots
             log_success "SSH ready on $hostname ($ip)"
             return 0
         fi
 
-        # Show progress every 10 attempts
-        if [ $((attempt % 10)) -eq 0 ] && [ $attempt -gt 0 ]; then
+        # Show progress every 12 attempts
+        if [ $((attempt % 12)) -eq 0 ] && [ $attempt -gt 0 ]; then
             log_info "Still waiting for SSH (attempt $attempt/$max_attempts)..." >&2
         fi
 
         echo -n "." >&2
-        sleep 5
+        sleep 2
         attempt=$((attempt + 1))
     done
 
     echo "" >&2  # New line after dots
-    log_error "SSH did not become ready on $hostname ($ip) after $((max_attempts * 5)) seconds"
+    log_error "SSH did not become ready on $hostname ($ip) after $((max_attempts * 2)) seconds"
     log_error "Please verify:"
     log_error "  1. SSH key is added to your BinaryLane account"
     log_error "  2. Server can be accessed at: ssh root@$ip"
@@ -360,11 +360,18 @@ install_kubernetes_prerequisites() {
 set -euo pipefail
 
 # Update system
-apt-get update
-apt-get upgrade -y
 
-# Install required packages
-apt-get install -y \
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+KUBE_VERSION="1.33.3-1.1"
+
+apt-get update
+
+# Install required packages (skip apt upgrade for speed)
+apt-get install -y --no-install-recommends \
     curl \
     wget \
     git \
@@ -374,15 +381,11 @@ apt-get install -y \
     apt-transport-https \
     ca-certificates \
     gnupg \
-    lsb-release
+    lsb-release \
+    containerd.io \
+    kubelet=$KUBE_VERSION kubeadm=$KUBE_VERSION kubectl=$KUBE_VERSION
 
-# Add Docker repository for containerd
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-apt-get update
-
-# Install containerd
-apt-get install -y containerd.io
+apt-mark hold kubelet kubeadm kubectl
 
 # Configure containerd
 mkdir -p /etc/containerd
@@ -409,16 +412,16 @@ net.ipv4.ip_forward = 1
 EOL
 sysctl --system
 
-# Install Kubernetes
-KUBE_VERSION="1.33.3-1.1"
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
-apt-get update
-apt-get install -y kubelet=$KUBE_VERSION kubeadm=$KUBE_VERSION kubectl=$KUBE_VERSION
-apt-mark hold kubelet kubeadm kubectl
-
 # Enable kubelet service
 systemctl enable kubelet
+
+# Configure kubelet to use external cloud provider
+mkdir -p /etc/systemd/system/kubelet.service.d
+cat > /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf <<'EOL'
+[Service]
+Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"
+EOL
+systemctl daemon-reload
 
 echo "Kubernetes installation complete"
 EOF
@@ -438,20 +441,32 @@ initialize_control_plane() {
     ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP bash <<EOF
 set -euo pipefail
 
-kubeadm init \
-    --pod-network-cidr=$POD_NETWORK_CIDR \
-    --apiserver-cert-extra-sans=$CONTROL_PLANE_IP \
-    --control-plane-endpoint=$CONTROL_PLANE_IP \
-    --ignore-preflight-errors=NumCPU
+# Create kubeadm config with cloud provider settings
+cat > /tmp/kubeadm-config.yaml <<'EOL'
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+nodeRegistration:
+  kubeletExtraArgs:
+  - name: cloud-provider
+    value: external
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+networking:
+  podSubnet: $POD_NETWORK_CIDR
+controlPlaneEndpoint: "$CONTROL_PLANE_IP"
+apiServer:
+  certSANs:
+  - $CONTROL_PLANE_IP
+EOL
+
+kubeadm init --config /tmp/kubeadm-config.yaml --ignore-preflight-errors=NumCPU,Mem
 
 mkdir -p /root/.kube
 cp /etc/kubernetes/admin.conf /root/.kube/config
 
-# Apply Flannel CNI
+# Apply Flannel CNI (no wait here, workers will wait when joining)
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-
-# Wait for control plane to be ready
-kubectl wait --for=condition=Ready node --all --timeout=300s
 EOF
 
     log_success "Control plane initialized"
@@ -484,9 +499,32 @@ join_worker_nodes() {
 
             log_info "Joining worker: $worker_name ($worker_ip)"
 
+            # Get CA cert hash and token from control plane
+            local ca_hash=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
+                "openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'")
+            local token=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
+                "kubeadm token create")
+
             ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$worker_ip bash <<EOF
 set -euo pipefail
-$join_command
+
+# Create kubeadm join config with cloud provider settings
+cat > /tmp/kubeadm-join-config.yaml <<'EOL'
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: "$CONTROL_PLANE_IP:6443"
+    token: "$token"
+    caCertHashes:
+    - "sha256:$ca_hash"
+nodeRegistration:
+  kubeletExtraArgs:
+  - name: cloud-provider
+    value: external
+EOL
+
+kubeadm join --config /tmp/kubeadm-join-config.yaml --ignore-preflight-errors=NumCPU,Mem
 EOF
 
             log_success "Worker $worker_name joined"
@@ -502,7 +540,7 @@ EOF
     # Wait for all nodes to be ready
     log_info "Waiting for all nodes to be ready..."
     ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
-        "kubectl wait --for=condition=Ready node --all --timeout=300s"
+        "kubectl wait --for=condition=Ready node --all --timeout=120s"
 
     log_success "All worker nodes joined and ready"
 }
@@ -519,9 +557,13 @@ deploy_cloud_controller_manager() {
     if kubectl get deployment -n kube-system binarylane-ccm-binarylane-cloud-controller-manager &>/dev/null; then
         log_info "CCM already deployed"
     else
-        # Build CCM image
-        log_info "Building CCM Docker image..."
-        docker build -t binarylane-cloud-controller-manager:local .
+        # Build CCM image (skip if already exists)
+        if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^binarylane-cloud-controller-manager:local$"; then
+            log_info "Building CCM Docker image..."
+            docker build -t binarylane-cloud-controller-manager:local .
+        else
+            log_info "CCM Docker image already exists"
+        fi
 
         # Import image to control plane
         log_info "Importing CCM image to control plane..."
@@ -544,26 +586,27 @@ deploy_cloud_controller_manager() {
             --set image.pullPolicy=Never
 
         log_info "Waiting for CCM deployment to be created..."
-        sleep 5
+        local wait_attempts=0
+        while [ $wait_attempts -lt 30 ]; do
+            if kubectl get deployment -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager &>/dev/null; then
+                break
+            fi
+            sleep 1
+            wait_attempts=$((wait_attempts + 1))
+        done
 
         # Get pod name for debugging
         local pod_name=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 
         if [ -n "$pod_name" ]; then
             log_info "CCM pod name: $pod_name"
-
-            log_info "Pod status:"
-            kubectl get pod -n kube-system "$pod_name" -o wide || true
-
-            log_info "Pod events:"
-            kubectl get events -n kube-system --field-selector involvedObject.name="$pod_name" --sort-by='.lastTimestamp' || true
         fi
 
         # Wait for CCM to be ready
-        log_info "Waiting for CCM pod to be ready (timeout: 120s)..."
+        log_info "Waiting for CCM pod to be ready (timeout: 60s)..."
         if ! kubectl wait --for=condition=Ready pod -n kube-system \
             -l app.kubernetes.io/name=binarylane-cloud-controller-manager \
-            --timeout=120s; then
+            --timeout=60s; then
 
             log_error "CCM pod did not become ready"
 
@@ -599,18 +642,8 @@ deploy_cloud_controller_manager() {
         log_success "CCM deployed"
     fi
 
-    # Set provider IDs for existing nodes
-    log_info "Setting provider IDs for nodes..."
-
-    kubectl patch node ${CLUSTER_NAME}-control-1 -p "{\"spec\":{\"providerID\":\"binarylane://$CONTROL_PLANE_ID\"}}" 2>/dev/null || true
-
-    for i in "${!WORKER_IDS[@]}"; do
-        local worker_id="${WORKER_IDS[$i]}"
-        local worker_name="${CLUSTER_NAME}-worker-$((i+1))"
-        kubectl patch node $worker_name -p "{\"spec\":{\"providerID\":\"binarylane://$worker_id\"}}" 2>/dev/null || true
-    done
-
-    log_success "Provider IDs set"
+    # CCM will automatically set provider IDs and node metadata
+    log_success "CCM deployed and will initialize nodes automatically"
 }
 
 validate_cluster() {
@@ -693,19 +726,19 @@ main() {
 
     # Wait for SSH on all servers in parallel
     log_info "Waiting for SSH on all nodes in parallel..."
-    wait_for_ssh $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1" &
-    local control_ssh_pid=$!
-
     declare -a ssh_pids
+
+    wait_for_ssh $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1" &
+    ssh_pids+=( $! )
+
     for i in "${!WORKER_IPS[@]}"; do
         wait_for_ssh "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))" &
         ssh_pids+=( $! )
     done
 
     # Wait for all SSH connections
-    wait $control_ssh_pid || { log_error "Failed to connect to control plane via SSH"; exit 1; }
     for pid in "${ssh_pids[@]}"; do
-        wait $pid || { log_error "Failed to connect to worker node via SSH"; exit 1; }
+        wait $pid || { log_error "Failed to connect to a node via SSH"; exit 1; }
     done
     log_success "All nodes are accessible via SSH"
 

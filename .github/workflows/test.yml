@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      BINARYLANE_API_TOKEN:
+        required: false
+        description: "BinaryLane API token for testing"
 
 permissions:
   contents: read

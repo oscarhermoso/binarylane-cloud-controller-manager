@@ -58,34 +58,32 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 		},
 	}
 
+	// Add IPv4 addresses
 	for _, net := range server.Networks.V4 {
+		addr := v1.NodeAddress{Address: net.IpAddress}
 		switch net.Type {
 		case "public":
-			addresses = append(addresses, v1.NodeAddress{
-				Type:    v1.NodeExternalIP,
-				Address: net.IpAddress,
-			})
+			addr.Type = v1.NodeExternalIP
 		case "private":
-			addresses = append(addresses, v1.NodeAddress{
-				Type:    v1.NodeInternalIP,
-				Address: net.IpAddress,
-			})
+			addr.Type = v1.NodeInternalIP
+		default:
+			continue
 		}
+		addresses = append(addresses, addr)
 	}
 
+	// Add IPv6 addresses
 	for _, net := range server.Networks.V6 {
+		addr := v1.NodeAddress{Address: net.IpAddress}
 		switch net.Type {
 		case "public":
-			addresses = append(addresses, v1.NodeAddress{
-				Type:    v1.NodeExternalIP,
-				Address: net.IpAddress,
-			})
+			addr.Type = v1.NodeExternalIP
 		case "private":
-			addresses = append(addresses, v1.NodeAddress{
-				Type:    v1.NodeInternalIP,
-				Address: net.IpAddress,
-			})
+			addr.Type = v1.NodeInternalIP
+		default:
+			continue
 		}
+		addresses = append(addresses, addr)
 	}
 
 	labels := make(map[string]string)

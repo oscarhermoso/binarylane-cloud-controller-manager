@@ -3,6 +3,7 @@ set -e
 
 CLUSTER_NAME="${CLUSTER_NAME:-ccm-e2e-test}"
 REGION="${REGION:-syd}"
+SERVER_SIZE="${SERVER_SIZE:-std-min}"
 WORKER_COUNT="${WORKER_COUNT:-2}"
 BINARYLANE_API_TOKEN="${BINARYLANE_API_TOKEN}"
 
@@ -183,6 +184,7 @@ main() {
     log_info "Deploying test cluster..."
     export CLUSTER_NAME="$CLUSTER_NAME"
     export REGION="$REGION"
+    export SERVER_SIZE="$SERVER_SIZE"
     export WORKER_COUNT="$WORKER_COUNT"
 
     if ! "$(dirname "$0")/deploy-cluster.sh"; then
@@ -193,8 +195,32 @@ main() {
     log_success "Cluster deployed successfully"
     echo ""
 
-    log_info "Waiting for CCM to initialize nodes (30s)..."
-    sleep 30
+    log_info "Waiting for CCM to initialize nodes..."
+    export KUBECONFIG=~/.kube/config-binarylane
+
+    # Wait for CCM pod to be ready
+    local ccm_ready_attempts=0
+    while [ $ccm_ready_attempts -lt 60 ]; do
+        local ccm_running=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager --no-headers 2>/dev/null | grep -c "Running" || true)
+        if [ "$ccm_running" -ge 1 ]; then
+            break
+        fi
+        sleep 2
+        ccm_ready_attempts=$((ccm_ready_attempts + 1))
+    done
+
+    # Wait for provider IDs to be set (indicates CCM has initialized nodes)
+    local provider_id_attempts=0
+    local total_nodes=$((1 + WORKER_COUNT))
+    while [ $provider_id_attempts -lt 30 ]; do
+        local nodes_with_provider_id=$(kubectl get nodes -o json 2>/dev/null | jq -r '.items[] | select(.spec.providerID != null and .spec.providerID != "") | .metadata.name' | wc -l)
+        if [ "$nodes_with_provider_id" -eq "$total_nodes" ]; then
+            log_info "CCM has initialized all nodes"
+            break
+        fi
+        sleep 2
+        provider_id_attempts=$((provider_id_attempts + 1))
+    done
 
     run_tests
 

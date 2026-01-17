@@ -12,7 +12,7 @@ COPY cmd/ cmd/
 COPY internal/ internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o binarylane-cloud-controller-manager ./cmd/binarylane-cloud-controller-manager
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -mod=readonly -o binarylane-cloud-controller-manager ./cmd/binarylane-cloud-controller-manager
 
 # Final stage
 FROM alpine:3.18
