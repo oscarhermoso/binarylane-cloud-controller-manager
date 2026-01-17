@@ -8,6 +8,7 @@ This [cloud controller manager](https://kubernetes.io/docs/concepts/architecture
 
 - **Instances Controller**: Manages node lifecycle and updates node metadata with cloud-specific information
 - **Zones Controller**: Provides availability zone information for nodes
+- **Routes Controller**: Manages pod network routes using BinaryLane VPC Route Entries
 
 
 The cloud controller manager automatically applies the following labels to nodes:

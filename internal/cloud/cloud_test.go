@@ -10,22 +10,29 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ClientInterface defines the methods needed from the BinaryLane client
+// TODO: Replace this with the built-in new() function after upgrading to Go 1.26
+func toPtr[T any](v T) *T {
+	return &v
+}
+
 type ClientInterface interface {
 	GetServer(ctx context.Context, serverID int64) (*binarylane.Server, error)
 	GetServerByName(ctx context.Context, name string) (*binarylane.Server, error)
 	ListServers(ctx context.Context) ([]binarylane.Server, error)
+	GetVpc(ctx context.Context, vpcID int64) (*binarylane.Vpc, error)
+	UpdateVpc(ctx context.Context, vpcID int64, req binarylane.UpdateVpcRequest) (*binarylane.Vpc, error)
 }
 
 type mockClient struct {
 	servers map[int64]*binarylane.Server
+	vpcs    map[int64]*binarylane.Vpc
 }
 
 func (m *mockClient) GetServer(ctx context.Context, serverID int64) (*binarylane.Server, error) {
 	if server, ok := m.servers[serverID]; ok {
 		return server, nil
 	}
-	return nil, fmt.Errorf("server not found")
+	return nil, binarylane.ErrServerNotFound
 }
 
 func (m *mockClient) GetServerByName(ctx context.Context, name string) (*binarylane.Server, error) {
@@ -34,7 +41,7 @@ func (m *mockClient) GetServerByName(ctx context.Context, name string) (*binaryl
 			return server, nil
 		}
 	}
-	return nil, fmt.Errorf("server not found")
+	return nil, fmt.Errorf("%w: %s", binarylane.ErrServerNotFound, name)
 }
 
 func (m *mockClient) ListServers(ctx context.Context) ([]binarylane.Server, error) {
@@ -43,6 +50,34 @@ func (m *mockClient) ListServers(ctx context.Context) ([]binarylane.Server, erro
 		servers = append(servers, *server)
 	}
 	return servers, nil
+}
+
+func (m *mockClient) GetVpc(ctx context.Context, vpcID int64) (*binarylane.Vpc, error) {
+	if vpc, ok := m.vpcs[vpcID]; ok {
+		return vpc, nil
+	}
+	return nil, binarylane.ErrVpcNotFound
+}
+
+func (m *mockClient) UpdateVpc(ctx context.Context, vpcID int64, req binarylane.UpdateVpcRequest) (*binarylane.Vpc, error) {
+	vpc, ok := m.vpcs[vpcID]
+	if !ok {
+		return nil, binarylane.ErrVpcNotFound
+	}
+
+	vpc.Name = req.Name
+	if req.RouteEntries != nil {
+		vpc.RouteEntries = make([]binarylane.RouteEntry, len(*req.RouteEntries))
+		for i, r := range *req.RouteEntries {
+			vpc.RouteEntries[i] = binarylane.RouteEntry{
+				Router:      r.Router,
+				Destination: r.Destination,
+				Description: r.Description,
+			}
+		}
+	}
+
+	return vpc, nil
 }
 
 func TestInstanceExists(t *testing.T) {
@@ -96,6 +131,7 @@ func TestInstanceMetadata(t *testing.T) {
 				Size:   binarylane.Size{Slug: "std-2vcpu"},
 				Region: binarylane.Region{Slug: "syd"},
 				Host:   binarylane.Host{DisplayName: "physical-host-01"},
+				VpcId:  toPtr(int64(1)),
 				Networks: binarylane.Networks{
 					V4: []binarylane.Network{
 						{
@@ -148,6 +184,7 @@ func TestInstanceMetadata(t *testing.T) {
 				Size:   binarylane.Size{Slug: "std-4vcpu"},
 				Region: binarylane.Region{Slug: "mel-1"},
 				Host:   binarylane.Host{DisplayName: "physical-host-02"},
+				VpcId:  toPtr(int64(2)),
 				Networks: binarylane.Networks{
 					V4: []binarylane.Network{
 						{

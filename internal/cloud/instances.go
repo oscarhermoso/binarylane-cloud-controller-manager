@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,10 +14,12 @@ import (
 
 var _ cloudprovider.InstancesV2 = &instancesV2{}
 
-// cloudClientInterface defines the methods needed from the cloud client
 type cloudClientInterface interface {
 	GetServer(ctx context.Context, serverID int64) (*binarylane.Server, error)
 	GetServerByName(ctx context.Context, name string) (*binarylane.Server, error)
+	ListServers(ctx context.Context) ([]binarylane.Server, error)
+	GetVpc(ctx context.Context, vpcID int64) (*binarylane.Vpc, error)
+	UpdateVpc(ctx context.Context, vpcID int64, req binarylane.UpdateVpcRequest) (*binarylane.Vpc, error)
 }
 
 type instancesV2 struct {
@@ -26,7 +29,7 @@ type instancesV2 struct {
 func (i *instancesV2) InstanceExists(ctx context.Context, node *v1.Node) (bool, error) {
 	server, err := i.getServerForNode(ctx, node)
 	if err != nil {
-		if err.Error() == fmt.Sprintf("server %q not found", node.Name) {
+		if errors.Is(err, binarylane.ErrServerNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -58,37 +61,37 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 		},
 	}
 
-	// Add IPv4 addresses
-	for _, net := range server.Networks.V4 {
-		addr := v1.NodeAddress{Address: net.IpAddress}
-		switch net.Type {
-		case "public":
-			addr.Type = v1.NodeExternalIP
-		case "private":
-			addr.Type = v1.NodeInternalIP
-		default:
-			continue
+	if server.VpcId != nil {
+		for _, net := range server.Networks.V4 {
+			if net.Type == "private" {
+				addresses = append(addresses, v1.NodeAddress{
+					Type:    v1.NodeInternalIP,
+					Address: net.IpAddress,
+				})
+			}
 		}
-		addresses = append(addresses, addr)
 	}
 
-	// Add IPv6 addresses
-	for _, net := range server.Networks.V6 {
-		addr := v1.NodeAddress{Address: net.IpAddress}
-		switch net.Type {
-		case "public":
-			addr.Type = v1.NodeExternalIP
-		case "private":
-			addr.Type = v1.NodeInternalIP
-		default:
-			continue
+	for _, net := range server.Networks.V4 {
+		if net.Type == "public" {
+			addresses = append(addresses, v1.NodeAddress{
+				Type:    v1.NodeExternalIP,
+				Address: net.IpAddress,
+			})
 		}
-		addresses = append(addresses, addr)
+	}
+
+	for _, net := range server.Networks.V6 {
+		if net.Type == "public" {
+			addresses = append(addresses, v1.NodeAddress{
+				Type:    v1.NodeExternalIP,
+				Address: net.IpAddress,
+			})
+		}
 	}
 
 	labels := make(map[string]string)
 
-	// Server host display name will be empty for dedicated servers
 	if server.Host.DisplayName != "" {
 		labels["binarylane.com/host"] = server.Host.DisplayName
 	}
@@ -111,12 +114,9 @@ func (i *instancesV2) getServerForNode(ctx context.Context, node *v1.Node) (*bin
 		}
 	}
 
-	// Fall back to name lookup
 	return i.client.GetServerByName(ctx, node.Name)
 }
 
-// parseProviderID extracts the server ID from a provider ID
-// Provider ID format: binarylane://123456
 func parseProviderID(providerID string) (int64, error) {
 	prefix := "binarylane://"
 	if !strings.HasPrefix(providerID, prefix) {

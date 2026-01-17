@@ -53,7 +53,7 @@ func cloudInitializer(config *config.CompletedConfig) cloudprovider.Interface {
 		klog.Fatalf("BINARYLANE_ACCESS_TOKEN environment variable is required")
 	}
 
-	cloudProvider, err := cloud.NewCloud(token)
+	cloudProvider, err := cloud.NewCloud(token, config.ComponentConfig.KubeCloudShared.ClusterCIDR)
 	if err != nil {
 		klog.Fatalf("failed to initialize BinaryLane cloud provider: %v", err)
 	}

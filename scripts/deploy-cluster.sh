@@ -8,6 +8,7 @@ CONTROL_PLANE_COUNT="${CONTROL_PLANE_COUNT:-1}"
 WORKER_COUNT="${WORKER_COUNT:-2}"
 K8S_VERSION="${K8S_VERSION:-1.29.15}"
 POD_NETWORK_CIDR="${POD_NETWORK_CIDR:-10.244.0.0/16}"
+VPC_IP_RANGE="${VPC_IP_RANGE:-10.240.0.0/16}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-.ssh/binarylane-k8s}"
 SSH_KEY_NAME="${SSH_KEY_NAME:-binarylane-k8s-cluster}"
 
@@ -93,6 +94,40 @@ generate_and_upload_ssh_key() {
         fi
 
         log_success "SSH key uploaded (ID: $SSH_KEY_ID)"
+    fi
+}
+
+get_or_create_vpc() {
+    log_info "Setting up VPC for cluster..."
+
+    # Check if VPC already exists
+    local existing_vpc=$(api_call GET "/vpcs?per_page=200" | jq -r ".vpcs[] | select(.name == \"$CLUSTER_NAME-vpc\")")
+
+    if [ -n "$existing_vpc" ]; then
+        VPC_ID=$(echo "$existing_vpc" | jq -r '.id')
+        log_info "VPC already exists (ID: $VPC_ID)"
+    else
+        log_info "Creating VPC: $CLUSTER_NAME-vpc"
+
+        local data=$(cat <<EOF
+{
+  "name": "$CLUSTER_NAME-vpc",
+  "ip_range": "$VPC_IP_RANGE"
+}
+EOF
+)
+
+        local response=$(api_call POST "/vpcs" "$data")
+        VPC_ID=$(echo "$response" | jq -r '.vpc.id')
+
+        if [ -z "$VPC_ID" ] || [ "$VPC_ID" == "null" ]; then
+            log_error "Failed to create VPC"
+            log_error "API Response:"
+            echo "$response" | jq '.'
+            exit 1
+        fi
+
+        log_success "VPC created (ID: $VPC_ID)"
     fi
 }
 
@@ -189,6 +224,12 @@ create_server() {
         return 1
     fi
 
+    # VPC ID is required
+    if [ -z "${VPC_ID:-}" ]; then
+        log_error "VPC_ID not set. This should have been set by get_or_create_vpc"
+        return 1
+    fi
+
     # Generate random password to avoid email notifications
     local random_password=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
 
@@ -200,12 +241,13 @@ create_server() {
   "image": $image_id,
   "ssh_keys": [$SSH_KEY_ID],
   "password": "$random_password",
-  "backups": false
+  "backups": false,
+  "vpc_id": $VPC_ID
 }
 EOF
 )
 
-    log_info "Creating with: region=$REGION, size=$SERVER_SIZE, image=$image_id, ssh_key=$SSH_KEY_ID"
+    log_info "Creating with: region=$REGION, size=$SERVER_SIZE, image=$image_id, ssh_key=$SSH_KEY_ID, vpc_id=$VPC_ID"
 
     local response=$(api_call POST "/servers" "$data")
     local server_id=$(echo "$response" | jq -r '.server.id')
@@ -728,6 +770,7 @@ main() {
 
     validate_environment
     generate_and_upload_ssh_key
+    get_or_create_vpc
 
     get_or_create_servers
 
