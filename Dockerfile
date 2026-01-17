@@ -1,23 +1,31 @@
-# Build stage
-FROM golang:1.25-alpine AS builder
+# syntax=docker/dockerfile:1
+
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
 WORKDIR /workspace
 
-# Copy go mod files
+# Copy go mod files (cached layer - only invalidated if deps change)
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Copy source code
 COPY cmd/ cmd/
 COPY internal/ internal/
 
-# Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -mod=readonly -o binarylane-cloud-controller-manager ./cmd/binarylane-cloud-controller-manager
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=dev
 
-# Final stage
-FROM alpine:3.18
+# Build with cache mounts for faster incremental builds
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -a -mod=readonly -ldflags="-w -s -X main.version=${VERSION}" \
+    -o binarylane-cloud-controller-manager ./cmd/binarylane-cloud-controller-manager
 
-RUN apk --no-cache add ca-certificates
+FROM alpine:3.23.2
+RUN apk add --update --no-cache ca-certificates
 
 WORKDIR /
 
