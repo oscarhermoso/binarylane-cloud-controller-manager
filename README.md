@@ -28,8 +28,9 @@ The cloud controller manager automatically applies the following labels to nodes
 - A Kubernetes cluster running on BinaryLane servers
 - BinaryLane API token with appropriate permissions
 - Kubernetes 1.24+
+- Helm 3.8+ (for OCI support)
 
-### Quick Start with Helm
+### Install with Helm (Recommended)
 
 ```bash
 # Create a secret with your API token
@@ -37,17 +38,15 @@ kubectl create secret generic binarylane-api-token \
   --from-literal=api-token="YOUR_API_TOKEN" \
   -n kube-system
 
-# Add the Helm repository
-helm repo add binarylane https://oscarhermoso.github.io/binarylane-cloud-controller-manager
-helm repo update
-
-# Install using the existing secret
-helm install binarylane-ccm binarylane/binarylane-cloud-controller-manager \
+# Install the chart from GitHub Container Registry
+helm install binarylane-ccm \
+  oci://ghcr.io/oscarhermoso/charts/binarylane-cloud-controller-manager \
+  --version 0.1.2 \
   --namespace kube-system \
   --set cloudControllerManager.secret.name="binarylane-api-token"
 ```
 
-For more Helm configuration options, see the [Helm chart documentation](charts/binarylane-cloud-controller-manager/README.md).
+For more configuration options, see the [Helm chart documentation](charts/binarylane-cloud-controller-manager/README.md).
 
 ### Manual Deployment with Kubernetes Manifests
 
@@ -62,13 +61,13 @@ kubectl create secret generic binarylane-api-token \
 2. **Deploy the RBAC configuration:**
 
 ```bash
-kubectl apply -f deploy/kubernetes/rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/oscarhermoso/binarylane-cloud-controller-manager/main/deploy/kubernetes/rbac.yaml
 ```
 
 3. **Deploy the cloud controller manager:**
 
 ```bash
-kubectl apply -f deploy/kubernetes/deployment.yaml
+kubectl apply -f https://raw.githubusercontent.com/oscarhermoso/binarylane-cloud-controller-manager/main/deploy/kubernetes/deployment.yaml
 ```
 
 ## Configuration
