@@ -3,6 +3,7 @@ set -e
 
 CLUSTER_NAME="${CLUSTER_NAME:-ccm-e2e-test}"
 REGION="${REGION:-syd}"
+SERVER_SIZE="${SERVER_SIZE:-std-min}"
 WORKER_COUNT="${WORKER_COUNT:-2}"
 BINARYLANE_API_TOKEN="${BINARYLANE_API_TOKEN}"
 
@@ -183,6 +184,7 @@ main() {
     log_info "Deploying test cluster..."
     export CLUSTER_NAME="$CLUSTER_NAME"
     export REGION="$REGION"
+    export SERVER_SIZE="$SERVER_SIZE"
     export WORKER_COUNT="$WORKER_COUNT"
 
     if ! "$(dirname "$0")/deploy-cluster.sh"; then

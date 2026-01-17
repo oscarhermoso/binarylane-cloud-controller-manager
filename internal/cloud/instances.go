@@ -93,12 +93,6 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 		labels["binarylane.com/host"] = server.Host.DisplayName
 	}
 
-	// Add zone/region labels for Kubernetes topology awareness
-	if server.Region.Slug != "" {
-		labels["topology.kubernetes.io/region"] = server.Region.Slug
-		labels["topology.kubernetes.io/zone"] = server.Region.Slug
-	}
-
 	return &cloudprovider.InstanceMetadata{
 		ProviderID:       providerID,
 		NodeAddresses:    addresses,

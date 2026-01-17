@@ -1303,6 +1303,9 @@ type CreateServerRequest struct {
 
 	// VpcId Leave null to use default (public) network for the selected region.
 	VpcId *int64 `json:"vpc_id"`
+
+	// VpcIpv4Address If provided this will be the Ipv4 address for the server's private VPC network adapter. If this is null an unused Ipv4 address will be assigned. This field is only valid when VpcId is provided.
+	VpcIpv4Address *string `json:"vpc_ipv4_address"`
 }
 
 // CreateServerRequestImage0 defines model for .

@@ -8,7 +8,7 @@
       "url": "https://support.binarylane.com.au/support/home",
       "email": "support@binarylane.com.au"
     },
-    "version": "0.33.1",
+    "version": "0.34.0",
     "x-logo": {
       "url": "https://www.binarylane.com.au/res/images/binarylane/logo.png",
       "backgroundColor": "#000000",
@@ -9643,6 +9643,11 @@
             "type": "integer",
             "description": "Leave null to use default (public) network for the selected region.",
             "format": "int64",
+            "nullable": true
+          },
+          "vpc_ipv4_address": {
+            "type": "string",
+            "description": "If provided this will be the Ipv4 address for the server's private VPC network adapter. If this is null an unused Ipv4 address will be assigned. This field is only valid when VpcId is provided.",
             "nullable": true
           },
           "ssh_keys": {

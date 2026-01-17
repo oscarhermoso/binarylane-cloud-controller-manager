@@ -3,7 +3,7 @@ set -euo pipefail
 
 CLUSTER_NAME="${CLUSTER_NAME:-binarylane-ccm}"
 REGION="${REGION:-per}"
-SERVER_SIZE="${SERVER_SIZE:-std-2vcpu}"
+SERVER_SIZE="${SERVER_SIZE:-std-min}"
 CONTROL_PLANE_COUNT="${CONTROL_PLANE_COUNT:-1}"
 WORKER_COUNT="${WORKER_COUNT:-2}"
 K8S_VERSION="${K8S_VERSION:-1.29.15}"
@@ -460,7 +460,7 @@ apiServer:
   - $CONTROL_PLANE_IP
 EOL
 
-kubeadm init --config /tmp/kubeadm-config.yaml --ignore-preflight-errors=NumCPU
+kubeadm init --config /tmp/kubeadm-config.yaml --ignore-preflight-errors=NumCPU,Mem
 
 mkdir -p /root/.kube
 cp /etc/kubernetes/admin.conf /root/.kube/config
@@ -524,7 +524,7 @@ nodeRegistration:
     value: external
 EOL
 
-kubeadm join --config /tmp/kubeadm-join-config.yaml
+kubeadm join --config /tmp/kubeadm-join-config.yaml --ignore-preflight-errors=NumCPU,Mem
 EOF
 
             log_success "Worker $worker_name joined"
