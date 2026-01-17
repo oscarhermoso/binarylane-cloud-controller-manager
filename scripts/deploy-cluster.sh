@@ -245,8 +245,44 @@ EOF
 get_or_create_servers() {
     log_info "Setting up cluster servers..."
 
-    # Create control plane
-    local control_result=$(create_server "${CLUSTER_NAME}-control-1" "control")
+    # Create all servers in parallel (control plane + workers)
+    log_info "Creating control plane and $WORKER_COUNT worker nodes in parallel..."
+
+    WORKER_IPS=()
+    WORKER_IDS=()
+
+    declare -a server_pids
+    declare -a server_temp_files
+
+    # Create control plane in background
+    local control_temp_file="/tmp/control-${CLUSTER_NAME}-$$"
+    server_temp_files+=( "$control_temp_file" )
+    (
+        result=$(create_server "${CLUSTER_NAME}-control-1" "control")
+        echo "$result" > "$control_temp_file"
+    ) &
+    server_pids+=( $! )
+
+    # Create workers in background
+    for i in $(seq 1 $WORKER_COUNT); do
+        local temp_file="/tmp/worker-${CLUSTER_NAME}-$i-$$"
+        server_temp_files+=( "$temp_file" )
+        (
+            result=$(create_server "${CLUSTER_NAME}-worker-$i" "worker")
+            echo "$result" > "$temp_file"
+        ) &
+        server_pids+=( $! )
+    done
+
+    # Wait for all server creations to complete
+    for pid in "${server_pids[@]}"; do
+        wait $pid
+    done
+
+    # Collect control plane result
+    local control_result=$(cat "$control_temp_file" 2>/dev/null || echo "")
+    rm -f "$control_temp_file"
+
     if [ -z "$control_result" ]; then
         log_error "Failed to create or retrieve control plane server"
         return 1
@@ -261,32 +297,9 @@ get_or_create_servers() {
 
     log_info "Control plane: ID=$CONTROL_PLANE_ID, IP=$CONTROL_PLANE_IP"
 
-    # Create workers in parallel
-    WORKER_IPS=()
-    WORKER_IDS=()
-
-    log_info "Creating $WORKER_COUNT worker nodes in parallel..."
-    declare -a worker_pids
-    declare -a worker_temp_files
-
+    # Collect worker results
     for i in $(seq 1 $WORKER_COUNT); do
         local temp_file="/tmp/worker-${CLUSTER_NAME}-$i-$$"
-        worker_temp_files+=( "$temp_file" )
-        (
-            result=$(create_server "${CLUSTER_NAME}-worker-$i" "worker")
-            echo "$result" > "$temp_file"
-        ) &
-        worker_pids+=( $! )
-    done
-
-    # Wait for all worker creations to complete
-    for pid in "${worker_pids[@]}"; do
-        wait $pid
-    done
-
-    # Collect results
-    for i in $(seq 1 $WORKER_COUNT); do
-        local temp_file="${worker_temp_files[$((i-1))]}"
         local worker_result=$(cat "$temp_file" 2>/dev/null || echo "")
         rm -f "$temp_file"
 
@@ -370,18 +383,12 @@ KUBE_VERSION="1.33.3-1.1"
 
 apt-get update
 
-# Install required packages (skip apt upgrade for speed)
+# Install required packages
 apt-get install -y --no-install-recommends \
-    curl \
-    wget \
-    git \
-    htop \
-    net-tools \
-    vim \
     apt-transport-https \
     ca-certificates \
+    curl \
     gnupg \
-    lsb-release \
     containerd.io \
     kubelet=$KUBE_VERSION kubeadm=$KUBE_VERSION kubectl=$KUBE_VERSION
 
@@ -557,12 +564,12 @@ deploy_cloud_controller_manager() {
     if kubectl get deployment -n kube-system binarylane-ccm-binarylane-cloud-controller-manager &>/dev/null; then
         log_info "CCM already deployed"
     else
-        # Build CCM image (skip if already exists)
-        if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^binarylane-cloud-controller-manager:local$"; then
+        # Build CCM image (always rebuild locally, skip in CI where it's pre-built)
+        if [ -z "${CI:-}" ]; then
             log_info "Building CCM Docker image..."
             docker build -t binarylane-cloud-controller-manager:local .
         else
-            log_info "CCM Docker image already exists"
+            log_info "Running in CI - using pre-built Docker image"
         fi
 
         # Import image to control plane
