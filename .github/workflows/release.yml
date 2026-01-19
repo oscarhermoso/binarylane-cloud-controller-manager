@@ -143,7 +143,17 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username ${{ github.repository_owner }} --password-stdin
 
+      - name: Validate release version
+        id: release_version
+        run: |
+          if [[ "${GITHUB_REF_NAME}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Error: Git ref name '${GITHUB_REF_NAME}' is not a valid semantic version (expected vMAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH)." >&2
+            exit 1
+          fi
+
       - name: Package and Push Helm Chart
         run: |
-          helm package charts/binarylane-cloud-controller-manager --version ${{ github.ref_name }} --app-version ${{ github.ref_name }}
-          helm push binarylane-cloud-controller-manager-${{ github.ref_name }}.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+          helm package charts/binarylane-cloud-controller-manager --version ${{ steps.release_version.outputs.version }} --app-version ${{ steps.release_version.outputs.version }}
+          helm push binarylane-cloud-controller-manager-${{ steps.release_version.outputs.version }}.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
