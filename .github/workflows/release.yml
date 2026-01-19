@@ -127,29 +127,33 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-helm-chart:
-    name: Publish Helm Chart
+    name: Publish Helm Chart to OCI Registry
     runs-on: ubuntu-latest
     needs: create-release
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Set up Helm
         uses: azure/setup-helm@v4.3.1
         with:
           version: "latest"
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.7.0
-        with:
-          charts_dir: charts
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username ${{ github.repository_owner }} --password-stdin
+
+      - name: Validate release version
+        id: release_version
+        run: |
+          if [[ "${GITHUB_REF_NAME}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Error: Git ref name '${GITHUB_REF_NAME}' is not a valid semantic version (expected vMAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH)." >&2
+            exit 1
+          fi
+
+      - name: Package and Push Helm Chart
+        run: |
+          helm package charts/binarylane-cloud-controller-manager --version ${{ steps.release_version.outputs.version }} --app-version ${{ steps.release_version.outputs.version }}
+          helm push binarylane-cloud-controller-manager-${{ steps.release_version.outputs.version }}.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
