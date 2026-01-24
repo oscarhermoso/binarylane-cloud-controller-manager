@@ -46,22 +46,16 @@ spec:
             - --cloud-provider=binarylane
             - --leader-elect=true
             - --use-service-account-credentials=true
-            - --allocate-node-cidrs=true
-            - --configure-cloud-routes=false
             - --v={{ .Values.verbosity }}
             {{- range .Values.extraArgs }}
             - {{ . }}
             {{- end }}
           env:
-            - name: BINARYLANE_ACCESS_TOKEN
+            - name: BINARYLANE_API_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ required "cloudControllerManager.secret.name is required" .Values.cloudControllerManager.secret.name }}
                   key: {{ .Values.cloudControllerManager.secret.key }}
-            {{- if .Values.cloudControllerManager.apiUrl }}
-            - name: BINARYLANE_API_URL
-              value: {{ .Values.cloudControllerManager.apiUrl | quote }}
-            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

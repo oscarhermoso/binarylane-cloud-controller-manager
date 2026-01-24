@@ -19,9 +19,6 @@ cloudControllerManager:
     name: 'binarylane-api-token'
     key: 'api-token'
 
-  # BinaryLane API URL (use default unless testing)
-  apiUrl: 'https://api.binarylane.com.au'
-
 # Service account configuration
 serviceAccount:
   create: true
@@ -97,27 +94,13 @@ hostNetwork: true
 verbosity: 2
 
 # Additional command-line arguments
-extraArgs:
-  []
-  # - --cluster-cidr=10.244.0.0/16
-  # - --configure-cloud-routes=false
+extraArgs: []
 
 # Additional environment variables
-extraEnv:
-  []
-  # - name: HTTP_PROXY
-  #   value: "http://proxy.example.com:8080"
+extraEnv: []
 
 # Additional volumes
-extraVolumes:
-  []
-  # - name: ca-certs
-  #   hostPath:
-  #     path: /etc/ssl/certs
+extraVolumes: []
 
 # Additional volume mounts
-extraVolumeMounts:
-  []
-  # - name: ca-certs
-  #   mountPath: /etc/ssl/certs
-  #   readOnly: true
+extraVolumeMounts: []

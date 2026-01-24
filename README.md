@@ -8,7 +8,6 @@ This [cloud controller manager](https://kubernetes.io/docs/concepts/architecture
 
 - **Instances Controller**: Manages node lifecycle and updates node metadata with cloud-specific information
 - **Zones Controller**: Provides availability zone information for nodes
-- **Routes Controller**: Manages pod network routes using BinaryLane VPC Route Entries
 
 
 The cloud controller manager automatically applies the following labels to nodes:
@@ -41,7 +40,7 @@ kubectl create secret generic binarylane-api-token \
 # Install the chart from GitHub Container Registry
 helm install binarylane-ccm \
   oci://ghcr.io/oscarhermoso/charts/binarylane-cloud-controller-manager \
-  --version 0.1.2 \
+  --version 0.2.2 \
   --namespace kube-system \
   --set cloudControllerManager.secret.name="binarylane-api-token"
 ```
@@ -74,7 +73,7 @@ kubectl apply -f https://raw.githubusercontent.com/oscarhermoso/binarylane-cloud
 
 ### Environment Variables
 
-- `BINARYLANE_ACCESS_TOKEN` (required): Your BinaryLane API token
+- `BINARYLANE_API_TOKEN` (required): Your BinaryLane API token
 
 ## Contributing
 

@@ -61,19 +61,14 @@ func (i *instancesV2) InstanceMetadata(ctx context.Context, node *v1.Node) (*clo
 		},
 	}
 
-	if server.VpcId != nil {
-		for _, net := range server.Networks.V4 {
-			if net.Type == "private" {
-				addresses = append(addresses, v1.NodeAddress{
-					Type:    v1.NodeInternalIP,
-					Address: net.IpAddress,
-				})
-			}
-		}
-	}
-
 	for _, net := range server.Networks.V4 {
-		if net.Type == "public" {
+		switch net.Type {
+		case "private":
+			addresses = append(addresses, v1.NodeAddress{
+				Type:    v1.NodeInternalIP,
+				Address: net.IpAddress,
+			})
+		case "public":
 			addresses = append(addresses, v1.NodeAddress{
 				Type:    v1.NodeExternalIP,
 				Address: net.IpAddress,

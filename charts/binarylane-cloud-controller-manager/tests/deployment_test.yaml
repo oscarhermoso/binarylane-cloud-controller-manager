@@ -4,10 +4,11 @@ templates:
   - serviceaccount.yaml
   - secret.yaml
   - rbac.yaml
+  - test-secret.yaml
 tests:
   - it: should create a deployment with correct replicas
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
       - isKind:
           of: Deployment
@@ -17,7 +18,7 @@ tests:
 
   - it: should use correct image
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
       image.repository: 'custom-repo'
       image.tag: 'v1.0.0'
     asserts:
@@ -25,39 +26,23 @@ tests:
           path: spec.template.spec.containers[0].image
           value: 'custom-repo:v1.0.0'
 
-  - it: should create secret when not using existing secret
-    template: secret.yaml
+  - it: should reference token secret via env var
     set:
-      cloudControllerManager.apiToken: 'test-token'
-    asserts:
-      - isKind:
-          of: Secret
-      - equal:
-          path: stringData.api-token
-          value: 'test-token'
-
-  - it: should not create secret when using existing secret
-    template: secret.yaml
-    set:
-      cloudControllerManager.existingSecret: 'my-secret'
-    asserts:
-      - hasDocuments:
-          count: 0
-
-  - it: should have correct environment variables
-    set:
-      cloudControllerManager.apiToken: 'test-token'
-      cloudControllerManager.apiUrl: 'https://api.test.com'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+      cloudControllerManager.secret.key: 'api-token'
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: BINARYLANE_API_URL
-            value: 'https://api.test.com'
+            name: BINARYLANE_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: binarylane-api-token
+                key: api-token
 
   - it: should use correct service account
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
       serviceAccount.name: 'custom-sa'
     asserts:
       - equal:
@@ -66,7 +51,7 @@ tests:
 
   - it: should apply tolerations
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
       - contains:
           path: spec.template.spec.tolerations
@@ -77,7 +62,7 @@ tests:
 
   - it: should apply node selector
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
       - equal:
           path: spec.template.spec.nodeSelector
@@ -86,7 +71,7 @@ tests:
 
   - it: should use host network
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
       - equal:
           path: spec.template.spec.hostNetwork
@@ -94,7 +79,7 @@ tests:
 
   - it: should have security context
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
@@ -106,7 +91,7 @@ tests:
   - it: should create RBAC resources
     template: rbac.yaml
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
       - hasDocuments:
           count: 2
@@ -119,21 +104,34 @@ tests:
 
   - it: should apply extra args
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
       extraArgs:
-        - '--configure-cloud-routes=true'
-        - '--cluster-cidr=10.244.0.0/16'
+        - '--kube-api-qps=50'
+        - '--kube-api-burst=100'
     asserts:
       - contains:
           path: spec.template.spec.containers[0].command
-          content: '--configure-cloud-routes=true'
+          content: '--kube-api-qps=50'
       - contains:
           path: spec.template.spec.containers[0].command
-          content: '--cluster-cidr=10.244.0.0/16'
+          content: '--kube-api-burst=100'
+
+  - it: should create test secret when enabled
+    template: test-secret.yaml
+    set:
+      createTestSecret: true
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+      cloudControllerManager.secret.key: 'api-token'
+    asserts:
+      - isKind:
+          of: Secret
+      - equal:
+          path: stringData.api-token
+          value: 'test-token-for-ci'
 
   - it: should set resource limits
     set:
-      cloudControllerManager.apiToken: 'test-token'
+      cloudControllerManager.secret.name: 'binarylane-api-token'
       resources:
         limits:
           cpu: '500m'

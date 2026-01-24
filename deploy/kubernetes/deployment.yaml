@@ -57,18 +57,14 @@ spec:
             - '/binarylane-cloud-controller-manager'
             - '--cloud-provider=binarylane'
             - '--leader-elect=true'
-            - '--use-service-account-credentials'
-            - '--allocate-node-cidrs=true'
-            - '--cluster-cidr=10.244.0.0/16'
+            - '--use-service-account-credentials=true'
             - '--v=2'
           env:
-            - name: BINARYLANE_ACCESS_TOKEN
+            - name: BINARYLANE_API_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: binarylane-api-token
                   key: api-token
-            - name: BINARYLANE_REGION
-              value: 'per' # Change to your region
           resources:
             requests:
               cpu: 100m
