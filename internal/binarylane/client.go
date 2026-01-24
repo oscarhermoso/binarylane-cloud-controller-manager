@@ -25,6 +25,7 @@ func NewBinaryLaneClient(token string) (*BinaryLaneClient, error) {
 		WithHTTPClient(httpClient),
 		WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
 			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("User-Agent", "binarylane-cloud-controller-manager/v0") // TODO: set version dynamically
 			return nil
 		}),
 	)

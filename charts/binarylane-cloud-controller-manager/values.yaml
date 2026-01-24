@@ -23,8 +23,6 @@ cloudControllerManager:
   secret:
     name: ''
     key: 'api-token'
-  # BinaryLane API URL
-  apiUrl: 'https://api.binarylane.com.au'
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -116,26 +114,13 @@ service:
 verbosity: 2
 
 # Extra arguments to pass to the cloud controller manager
-extraArgs:
-  []
-  # - --configure-cloud-routes=false
+extraArgs: []
 
 # Extra environment variables
-extraEnv:
-  []
-  # - name: HTTP_PROXY
-  #   value: "http://proxy.example.com:8080"
+extraEnv: []
 
 # Extra volumes
-extraVolumes:
-  []
-  # - name: ca-certs
-  #   hostPath:
-  #     path: /etc/ssl/certs
+extraVolumes: []
 
 # Extra volume mounts
-extraVolumeMounts:
-  []
-  # - name: ca-certs
-  #   mountPath: /etc/ssl/certs
-  #   readOnly: true
+extraVolumeMounts: []

@@ -190,43 +190,6 @@ run_tests() {
         test_failed "VPC Internal IPs" "$vpc_mismatch mismatches found"
     fi
 
-    log_info "Test 8: Verify routes controller functionality"
-    local ccm_logs=$(kubectl logs -n kube-system -l app.kubernetes.io/name=binarylane-cloud-controller-manager --tail=100 2>/dev/null)
-
-    if echo "$ccm_logs" | grep -q "Failed to list routes\|route.*error"; then
-        test_failed "Routes Controller" "Route errors found in CCM logs"
-    elif echo "$ccm_logs" | grep -q "route"; then
-        log_info "Routes controller is active"
-
-        local route_errors=0
-
-        for node_name in $nodes; do
-            local server_info=$(curl -s -X GET "https://api.binarylane.com.au/v2/servers?per_page=200" \
-                -H "Authorization: Bearer $BINARYLANE_API_TOKEN" 2>/dev/null | \
-                jq -r ".servers[] | select(.name == \"$node_name\")")
-
-            local vpc_id=$(echo "$server_info" | jq -r '.vpc_id')
-
-            if [ -n "$vpc_id" ] && [ "$vpc_id" != "null" ]; then
-                local has_private_ip=$(echo "$server_info" | jq -r '.networks.v4[] | select(.type == "private") | .ip_address')
-                if [ -z "$has_private_ip" ]; then
-                    log_error "Node $node_name in VPC but missing private IP for routing"
-                    ((route_errors++))
-                else
-                    log_info "✓ Node $node_name has routing configured (VPC: $vpc_id, Private IP: $has_private_ip)"
-                fi
-            fi
-        done
-
-        if [ "$route_errors" -eq 0 ]; then
-            test_passed "Routes controller working correctly"
-        else
-            test_failed "Routes Controller" "$route_errors routing issues found"
-        fi
-    else
-        log_info "Routes controller present (no route-specific logs found)"
-        test_passed "Routes controller initialized"
-    fi
 }
 
 print_results() {

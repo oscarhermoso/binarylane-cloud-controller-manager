@@ -18,7 +18,6 @@ The following table lists the configurable parameters of the chart and their def
 | `image.tag`                          | Image tag                           | Chart appVersion                                           |
 | `cloudControllerManager.secret.name` | Name of secret containing API token | `""`                                                       |
 | `cloudControllerManager.secret.key`  | Key in secret for API token         | `api-token`                                                |
-| `cloudControllerManager.apiUrl`      | BinaryLane API URL                  | `https://api.binarylane.com.au`                            |
 | `serviceAccount.create`              | Create service account              | `true`                                                     |
 | `serviceAccount.name`                | Service account name                | Generated from template                                    |
 | `resources.limits.cpu`               | CPU limit                           | `200m`                                                     |
@@ -51,7 +50,6 @@ cloudControllerManager:
 cloudControllerManager:
   secret:
     name: "binarylane-api-token"
-  apiUrl: "https://api.binarylane.com.au"
 
 replicaCount: 2
 
@@ -64,8 +62,8 @@ resources:
     memory: 128Mi
 
 extraArgs:
-  - "--cluster-cidr=10.244.0.0/16"
-  - "--configure-cloud-routes=false"
+  - "--kube-api-qps=50"
+  - "--kube-api-burst=100"
 
 extraEnv:
   - name: HTTP_PROXY
@@ -82,31 +80,6 @@ tolerations:
     operator: Equal
     value: "true"
     effect: NoSchedule
-```
-
-### Using with Custom Node Labels
-
-```yaml
-# values-custom-nodes.yaml
-cloudControllerManager:
-  apiToken: "your-api-token-here"
-
-nodeSelector:
-  node-role.kubernetes.io/control-plane: ""
-  custom-label: "ccm"
-
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values:
-                  - binarylane-cloud-controller-manager
-          topologyKey: kubernetes.io/hostname
 ```
 
 ## Upgrading

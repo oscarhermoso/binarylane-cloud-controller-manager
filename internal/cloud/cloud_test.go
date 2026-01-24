@@ -3,6 +3,7 @@ package cloud
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/oscarhermoso/binarylane-cloud-controller-manager/internal/binarylane"
@@ -74,38 +75,6 @@ func (m *mockClient) UpdateVpc(ctx context.Context, vpcID int64, req binarylane.
 	}
 
 	return vpc, nil
-}
-
-func TestInstanceExists(t *testing.T) {
-	mock := &mockClient{
-		servers: map[int64]*binarylane.Server{
-			123: {
-				Id:     123,
-				Name:   "test-node",
-				Status: "active",
-			},
-		},
-	}
-
-	inst := &instancesV2{
-		client: &binarylane.BinaryLaneClient{},
-	}
-
-	// Override the client's methods - in real tests we'd use dependency injection
-	node := &v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-node",
-		},
-		Spec: v1.NodeSpec{
-			ProviderID: "binarylane://123",
-		},
-	}
-
-	// Test would require proper mocking framework
-	// This is a simplified example
-	_ = inst
-	_ = node
-	_ = mock
 }
 
 func TestInstanceMetadata(t *testing.T) {
@@ -353,5 +322,29 @@ func TestRoutesWithCIDR(t *testing.T) {
 	}
 	if routes == nil {
 		t.Error("Routes() should return non-nil when enabled")
+	}
+}
+
+func TestNewCloud_RequiresToken(t *testing.T) {
+	t.Setenv("BINARYLANE_API_TOKEN", "")
+
+	cloud, err := newCloud(strings.NewReader(""))
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if cloud != nil {
+		t.Fatalf("expected nil cloud, got %#v", cloud)
+	}
+}
+
+func TestNewCloud_ReturnsCloudWithToken(t *testing.T) {
+	t.Setenv("BINARYLANE_API_TOKEN", "test-token")
+
+	cloud, err := newCloud(strings.NewReader(""))
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if cloud == nil {
+		t.Fatalf("expected non-nil cloud")
 	}
 }

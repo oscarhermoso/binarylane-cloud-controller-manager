@@ -3,6 +3,7 @@ package cloud
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/oscarhermoso/binarylane-cloud-controller-manager/internal/binarylane"
 	cloudprovider "k8s.io/cloud-provider"
@@ -19,7 +20,10 @@ type Cloud struct {
 	cidr   string
 }
 
-func NewCloud(token string, cidr string) (cloudprovider.Interface, error) {
+func newCloud(config io.Reader) (cloudprovider.Interface, error) {
+	// TODO: read config?
+
+	token := os.Getenv("BINARYLANE_API_TOKEN")
 	if token == "" {
 		return nil, fmt.Errorf("BinaryLane API token is required")
 	}
@@ -31,7 +35,6 @@ func NewCloud(token string, cidr string) (cloudprovider.Interface, error) {
 
 	return &Cloud{
 		client: client,
-		cidr:   cidr,
 	}, nil
 }
 
@@ -43,7 +46,7 @@ func (c *Cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
 }
 
 func (c *Cloud) Instances() (cloudprovider.Instances, bool) {
-	// Replaced by InstancesV2
+	// Replaced by InstancesV2, does not need to be implemented
 	return nil, false
 }
 
@@ -54,7 +57,7 @@ func (c *Cloud) InstancesV2() (cloudprovider.InstancesV2, bool) {
 }
 
 func (c *Cloud) Zones() (cloudprovider.Zones, bool) {
-	// Replaced by InstancesV2
+	// Replaced by InstancesV2, does not need to be implemented
 	return nil, false
 }
 
@@ -81,7 +84,7 @@ func (c *Cloud) HasClusterID() bool {
 }
 
 func init() {
-	cloudprovider.RegisterCloudProvider(ProviderName, func(config io.Reader) (cloudprovider.Interface, error) {
-		return nil, fmt.Errorf("use NewCloud function to create BinaryLane cloud provider")
-	})
+	// TODO: register metrics here once implemented
+
+	cloudprovider.RegisterCloudProvider(ProviderName, newCloud)
 }
