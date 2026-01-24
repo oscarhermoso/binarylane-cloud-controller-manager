@@ -47,7 +47,7 @@ jobs:
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-X main.version=${{ github.ref_name }}" -o bin/binarylane-cloud-controller-manager-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/binarylane-cloud-controller-manager
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
           path: bin/binarylane-cloud-controller-manager-${{ matrix.goos }}-${{ matrix.goarch }}

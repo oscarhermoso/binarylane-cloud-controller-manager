@@ -108,7 +108,7 @@ jobs:
         run: make build
 
       - name: Upload binary as artifact
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: binarylane-cloud-controller-manager
           path: bin/binarylane-cloud-controller-manager
