@@ -90,13 +90,12 @@ tolerations:
     operator: Exists
 
 # Affinity for pod assignment
+# Note: The labelSelector matchLabels will be set using the selectorLabels template
+# in the deployment template to match app.kubernetes.io/name and app.kubernetes.io/instance
 affinity:
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       - topologyKey: kubernetes.io/hostname
-        labelSelector:
-          matchLabels:
-            app.kubernetes.io/name: binarylane-cloud-controller-manager
 
 # Priority class name
 priorityClassName: system-cluster-critical

@@ -75,7 +75,30 @@ spec:
       {{- end }}
       {{- with .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- if .podAntiAffinity }}
+        podAntiAffinity:
+          {{- if .podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            {{- range .podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution }}
+            - topologyKey: {{ .topologyKey }}
+              labelSelector:
+                matchLabels:
+                  {{- include "binarylane-cloud-controller-manager.selectorLabels" $ | nindent 18 }}
+            {{- end }}
+          {{- end }}
+          {{- if .podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            {{- toYaml .podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- if .podAffinity }}
+        podAffinity:
+          {{- toYaml .podAffinity | nindent 10 }}
+        {{- end }}
+        {{- if .nodeAffinity }}
+        nodeAffinity:
+          {{- toYaml .nodeAffinity | nindent 10 }}
+        {{- end }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:

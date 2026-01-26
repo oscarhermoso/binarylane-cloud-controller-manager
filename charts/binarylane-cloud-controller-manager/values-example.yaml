@@ -81,8 +81,12 @@ tolerations:
     key: node.kubernetes.io/not-ready
     operator: Exists
 
-# Affinity rules (empty by default)
-affinity: {}
+# Affinity rules - pod anti-affinity ensures replicas don't run on the same node
+# The labelSelector will automatically use the correct selector labels (app.kubernetes.io/name and app.kubernetes.io/instance)
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
 
 # Priority class for pod scheduling
 priorityClassName: system-cluster-critical

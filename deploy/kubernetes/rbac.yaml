@@ -3,14 +3,22 @@ kind: ServiceAccount
 metadata:
   name: cloud-controller-manager
   namespace: kube-system
+  labels:
+    app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/component: cloud-controller-manager
+    app.kubernetes.io/part-of: kubernetes
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: system:cloud-controller-manager
+  labels:
+    app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/component: cloud-controller-manager
+    app.kubernetes.io/part-of: kubernetes
 rules:
   - apiGroups:
-      - ""
+      - ''
     resources:
       - events
     verbs:
@@ -18,19 +26,19 @@ rules:
       - patch
       - update
   - apiGroups:
-      - ""
+      - ''
     resources:
       - nodes
     verbs:
       - '*'
   - apiGroups:
-      - ""
+      - ''
     resources:
       - nodes/status
     verbs:
       - patch
   - apiGroups:
-      - ""
+      - ''
     resources:
       - services
     verbs:
@@ -39,7 +47,7 @@ rules:
       - update
       - watch
   - apiGroups:
-      - ""
+      - ''
     resources:
       - services/status
     verbs:
@@ -48,14 +56,14 @@ rules:
       - update
       - watch
   - apiGroups:
-      - ""
+      - ''
     resources:
       - serviceaccounts
     verbs:
       - create
       - get
   - apiGroups:
-      - ""
+      - ''
     resources:
       - persistentvolumes
     verbs:
@@ -64,7 +72,7 @@ rules:
       - update
       - watch
   - apiGroups:
-      - ""
+      - ''
     resources:
       - endpoints
     verbs:
@@ -84,7 +92,7 @@ rules:
       - watch
       - update
   - apiGroups:
-      - ""
+      - ''
     resources:
       - secrets
     verbs:
@@ -96,6 +104,10 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: system:cloud-controller-manager
+  labels:
+    app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/component: cloud-controller-manager
+    app.kubernetes.io/part-of: kubernetes
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
