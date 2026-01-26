@@ -1,12 +1,11 @@
 suite: test deployment
 templates:
   - deployment.yaml
-  - serviceaccount.yaml
-  - secret.yaml
   - rbac.yaml
   - test-secret.yaml
 tests:
   - it: should create a deployment with correct replicas
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
@@ -17,6 +16,7 @@ tests:
           value: 1
 
   - it: should use correct image
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
       image.repository: 'custom-repo'
@@ -27,6 +27,7 @@ tests:
           value: 'custom-repo:v1.0.0'
 
   - it: should reference token secret via env var
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
       cloudControllerManager.secret.key: 'api-token'
@@ -41,6 +42,7 @@ tests:
                 key: api-token
 
   - it: should use correct service account
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
       serviceAccount.name: 'custom-sa'
@@ -50,6 +52,7 @@ tests:
           value: 'custom-sa'
 
   - it: should apply tolerations
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
@@ -61,6 +64,7 @@ tests:
             effect: NoSchedule
 
   - it: should apply node selector
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
@@ -70,6 +74,7 @@ tests:
             node-role.kubernetes.io/control-plane: ''
 
   - it: should use host network
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
@@ -78,6 +83,7 @@ tests:
           value: true
 
   - it: should have security context
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
     asserts:
@@ -103,6 +109,7 @@ tests:
         documentIndex: 1
 
   - it: should apply extra args
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
       extraArgs:
@@ -130,6 +137,7 @@ tests:
           value: 'test-token-for-ci'
 
   - it: should set resource limits
+    template: deployment.yaml
     set:
       cloudControllerManager.secret.name: 'binarylane-api-token'
       resources:

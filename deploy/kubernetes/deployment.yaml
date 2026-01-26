@@ -4,7 +4,9 @@ metadata:
   name: binarylane-cloud-controller-manager
   namespace: kube-system
   labels:
-    app: binarylane-cloud-controller-manager
+    app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/component: cloud-controller-manager
+    app.kubernetes.io/part-of: kubernetes
 spec:
   replicas: 1 # Adjust the number of replicas as needed
   revisionHistoryLimit: 2
@@ -12,11 +14,13 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: binarylane-cloud-controller-manager
+      app.kubernetes.io/name: binarylane-cloud-controller-manager
   template:
     metadata:
       labels:
-        app: binarylane-cloud-controller-manager
+        app.kubernetes.io/name: binarylane-cloud-controller-manager
+        app.kubernetes.io/component: cloud-controller-manager
+        app.kubernetes.io/part-of: kubernetes
     spec:
       dnsPolicy: Default
       hostNetwork: true
@@ -27,7 +31,7 @@ spec:
             - topologyKey: kubernetes.io/hostname
               labelSelector:
                 matchLabels:
-                  app: binarylane-cloud-controller-manager
+                  app.kubernetes.io/name: binarylane-cloud-controller-manager
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/control-plane

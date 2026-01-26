@@ -37,6 +37,8 @@ helm.sh/chart: {{ include "binarylane-cloud-controller-manager.chart" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
+app.kubernetes.io/component: cloud-controller-manager
+app.kubernetes.io/part-of: kubernetes
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
