@@ -82,6 +82,15 @@ tests:
           path: spec.template.spec.hostNetwork
           value: true
 
+  - it: should set dnsPolicy for hostNetwork pods
+    template: deployment.yaml
+    set:
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsPolicy
+          value: ClusterFirstWithHostNet
+
   - it: should have security context
     template: deployment.yaml
     set:
@@ -107,6 +116,34 @@ tests:
       - isKind:
           of: ClusterRoleBinding
         documentIndex: 1
+
+  - it: should allow TokenRequest and configmap reads
+    template: rbac.yaml
+    set:
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - ''
+            resources:
+              - serviceaccounts/token
+            verbs:
+              - create
+        documentIndex: 0
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - ''
+            resources:
+              - configmaps
+            verbs:
+              - get
+              - list
+              - watch
+        documentIndex: 0
 
   - it: should apply extra args
     template: deployment.yaml
