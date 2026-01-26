@@ -22,9 +22,10 @@ spec:
         app.kubernetes.io/component: cloud-controller-manager
         app.kubernetes.io/part-of: kubernetes
     spec:
-      dnsPolicy: Default
+      dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       serviceAccountName: cloud-controller-manager
+      priorityClassName: system-cluster-critical
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
