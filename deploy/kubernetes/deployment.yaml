@@ -22,7 +22,7 @@ spec:
         app.kubernetes.io/component: cloud-controller-manager
         app.kubernetes.io/part-of: kubernetes
     spec:
-      dnsPolicy: ClusterFirstWithHostNet
+      dnsPolicy: Default
       hostNetwork: true
       serviceAccountName: cloud-controller-manager
       priorityClassName: system-cluster-critical

@@ -33,7 +33,7 @@ spec:
       {{- if .Values.dnsPolicy }}
       dnsPolicy: {{ .Values.dnsPolicy }}
       {{- else if .Values.hostNetwork }}
-      dnsPolicy: ClusterFirstWithHostNet
+      dnsPolicy: Default
       {{- end }}
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}

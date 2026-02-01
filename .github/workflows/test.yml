@@ -152,6 +152,15 @@ jobs:
           cache-from: type=gha, scope=${{ github.workflow }}
           cache-to: type=gha, mode=max, scope=${{ github.workflow }}
 
+      - name: Load image into kind
+        run: |
+          cluster_name="$(kind get clusters | head -n 1)"
+          if [ -z "$cluster_name" ]; then
+            echo "No kind cluster found" >&2
+            exit 1
+          fi
+          kind load docker-image binarylane-cloud-controller-manager:local --name "$cluster_name"
+
       - name: Run chart-testing (install)
         run: |
           # ct install will create a new namespace and install the chart there

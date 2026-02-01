@@ -10,4 +10,4 @@ createTestSecret: true
 image:
   repository: binarylane-cloud-controller-manager
   tag: local
-  pullPolicy: IfNotPresent
+  pullPolicy: Never

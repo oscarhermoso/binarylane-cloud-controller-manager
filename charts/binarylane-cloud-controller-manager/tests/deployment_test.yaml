@@ -89,7 +89,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.dnsPolicy
-          value: ClusterFirstWithHostNet
+          value: Default
 
   - it: should have security context
     template: deployment.yaml
