@@ -5,3 +5,9 @@ cloudControllerManager:
 
 # Create a test secret for CI
 createTestSecret: true
+
+# Use a locally-built image in the kind cluster (loaded by CI)
+image:
+  repository: binarylane-cloud-controller-manager
+  tag: local
+  pullPolicy: Never

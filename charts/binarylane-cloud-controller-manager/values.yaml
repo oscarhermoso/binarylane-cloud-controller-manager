@@ -103,6 +103,9 @@ priorityClassName: system-cluster-critical
 # Host network - cloud controller manager needs to communicate with API server
 hostNetwork: true
 
+# DNS policy. If empty and hostNetwork is true, defaults to Default.
+dnsPolicy: ''
+
 # Service configuration (not typically used for CCM)
 service:
   enabled: false
