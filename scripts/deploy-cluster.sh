@@ -233,19 +233,100 @@ create_server() {
     # Generate random password to avoid email notifications
     local random_password=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
 
-    local data=$(cat <<EOF
-{
-  "name": "$name",
-  "region": "$REGION",
-  "size": "$SERVER_SIZE",
-  "image": $image_id,
-  "ssh_keys": [$SSH_KEY_ID],
-  "password": "$random_password",
-  "backups": false,
-  "vpc_id": $VPC_ID
-}
-EOF
+    # Create user_data script for Kubernetes installation
+    local user_data_script=$(cat <<'USERDATA'
+#!/bin/bash
+set -euo pipefail
+
+# Update system and install prerequisites
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+KUBE_VERSION="1.35.0-1.1"
+
+apt-get update
+
+# Install required packages
+apt-get install -y --no-install-recommends \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    containerd.io \
+    kubelet=$KUBE_VERSION kubeadm=$KUBE_VERSION kubectl=$KUBE_VERSION
+
+apt-mark hold kubelet kubeadm kubectl
+
+# Configure containerd
+mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml > /dev/null
+systemctl restart containerd
+
+# Disable swap
+swapoff -a
+sed -i '/ swap / s/^/#/' /etc/fstab
+
+# Load kernel modules
+cat > /etc/modules-load.d/k8s.conf <<'EOL'
+overlay
+br_netfilter
+EOL
+modprobe overlay
+modprobe br_netfilter
+
+# Set kernel parameters
+cat > /etc/sysctl.d/k8s.conf <<'EOL'
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+EOL
+sysctl --system
+
+# Enable kubelet service
+systemctl enable kubelet
+
+# Configure kubelet to use external cloud provider
+mkdir -p /etc/systemd/system/kubelet.service.d
+cat > /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf <<'EOL'
+[Service]
+Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"
+EOL
+systemctl daemon-reload
+
+# Pre-pull Kubernetes images
+kubeadm config images pull
+
+echo "Kubernetes installation complete"
+USERDATA
 )
+
+    # Escape user_data for JSON (escape backslashes, quotes, and convert newlines)
+    local user_data_json=$(echo "$user_data_script" | jq -Rs .)
+
+    # Create JSON payload
+    local data=$(jq -n \
+        --arg name "$name" \
+        --arg region "$REGION" \
+        --arg size "$SERVER_SIZE" \
+        --argjson image "$image_id" \
+        --argjson ssh_key "$SSH_KEY_ID" \
+        --arg password "$random_password" \
+        --argjson vpc "$VPC_ID" \
+        --argjson user_data "$user_data_json" \
+        '{
+            name: $name,
+            region: $region,
+            size: $size,
+            image: $image,
+            ssh_keys: [$ssh_key],
+            password: $password,
+            backups: false,
+            vpc_id: $vpc,
+            user_data: $user_data
+        }'
+    )
 
     log_info "Creating with: region=$REGION, size=$SERVER_SIZE, image=$image_id, ssh_key=$SSH_KEY_ID, vpc_id=$VPC_ID"
 
@@ -281,6 +362,34 @@ EOF
     fi
 
     log_success "Created server: $name (ID: $server_id, IP: $server_ip)"
+
+    # Remove old SSH host key (BinaryLane recycles IPs)
+    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$server_ip" 2>/dev/null || true
+
+    # Wait for SSH to be available
+    log_info "Waiting for SSH on $name ($server_ip)..."
+    local ssh_attempts=0
+    while [ $ssh_attempts -lt 60 ]; do
+        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o BatchMode=yes root@$server_ip "echo 'SSH ready'" 2>/dev/null; then
+            log_success "SSH ready on $name"
+            break
+        fi
+        echo -n "." >&2
+        sleep 2
+        ssh_attempts=$((ssh_attempts + 1))
+    done
+    echo "" >&2
+
+    # Wait for cloud-init to complete
+    log_info "Waiting for cloud-init to complete on $name..."
+    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$server_ip bash <<'EOSSH'
+tail -f /var/log/cloud-init-output.log &
+TAIL_PID=$!
+cloud-init status --wait >/dev/null || cloud-init status --format json
+kill $TAIL_PID 2>/dev/null || true
+EOSSH
+    log_success "Cloud-init complete on $name"
+
     echo "$server_id:$server_ip"
 }
 
@@ -363,119 +472,6 @@ get_or_create_servers() {
     done
 
     log_success "All servers ready"
-}
-
-wait_for_ssh() {
-    local ip="$1"
-    local hostname="${2:-server}"
-    local max_attempts=60
-    local attempt=0
-
-    log_info "Waiting for SSH on $hostname ($ip)..."
-
-    while [ $attempt -lt $max_attempts ]; do
-        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o BatchMode=yes root@$ip "echo 'SSH ready'" 2>/dev/null; then
-            echo "" >&2  # New line after dots
-            log_success "SSH ready on $hostname ($ip)"
-            return 0
-        fi
-
-        # Show progress every 12 attempts
-        if [ $((attempt % 12)) -eq 0 ] && [ $attempt -gt 0 ]; then
-            log_info "Still waiting for SSH (attempt $attempt/$max_attempts)..." >&2
-        fi
-
-        echo -n "." >&2
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-
-    echo "" >&2  # New line after dots
-    log_error "SSH did not become ready on $hostname ($ip) after $((max_attempts * 2)) seconds"
-    log_error "Please verify:"
-    log_error "  1. SSH key is added to your BinaryLane account"
-    log_error "  2. Server can be accessed at: ssh root@$ip"
-    log_error "  3. Security groups allow SSH access"
-    return 1
-}
-
-install_kubernetes_prerequisites() {
-    local ip="$1"
-    local hostname="${2:-server}"
-
-    log_info "Installing Kubernetes prerequisites on $hostname ($ip)..."
-
-    # Check if already installed
-    if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes root@$ip "which kubeadm" &>/dev/null; then
-        log_info "Kubernetes already installed on $hostname"
-        return 0
-    fi
-
-    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$ip bash <<'EOF'
-set -euo pipefail
-
-# Update system
-
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
-KUBE_VERSION="1.35.0-1.1"
-
-apt-get update
-
-# Install required packages
-apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg \
-    containerd.io \
-    kubelet=$KUBE_VERSION kubeadm=$KUBE_VERSION kubectl=$KUBE_VERSION
-
-apt-mark hold kubelet kubeadm kubectl
-
-# Configure containerd
-mkdir -p /etc/containerd
-containerd config default | tee /etc/containerd/config.toml > /dev/null
-systemctl restart containerd
-
-# Disable swap
-swapoff -a
-sed -i '/ swap / s/^/#/' /etc/fstab
-
-# Load kernel modules
-cat > /etc/modules-load.d/k8s.conf <<'EOL'
-overlay
-br_netfilter
-EOL
-modprobe overlay
-modprobe br_netfilter
-
-# Set kernel parameters
-cat > /etc/sysctl.d/k8s.conf <<'EOL'
-net.bridge.bridge-nf-call-iptables = 1
-net.bridge.bridge-nf-call-ip6tables = 1
-net.ipv4.ip_forward = 1
-EOL
-sysctl --system
-
-# Enable kubelet service
-systemctl enable kubelet
-
-# Configure kubelet to use external cloud provider
-mkdir -p /etc/systemd/system/kubelet.service.d
-cat > /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf <<'EOL'
-[Service]
-Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"
-EOL
-systemctl daemon-reload
-
-echo "Kubernetes installation complete"
-EOF
-
-    log_success "Kubernetes installed on $hostname"
 }
 
 initialize_control_plane() {
@@ -773,42 +769,6 @@ main() {
     get_or_create_vpc
 
     get_or_create_servers
-
-    # Wait for SSH on all servers in parallel
-    log_info "Waiting for SSH on all nodes in parallel..."
-    declare -a ssh_pids
-
-    wait_for_ssh $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1" &
-    ssh_pids+=( $! )
-
-    for i in "${!WORKER_IPS[@]}"; do
-        wait_for_ssh "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))" &
-        ssh_pids+=( $! )
-    done
-
-    # Wait for all SSH connections
-    for pid in "${ssh_pids[@]}"; do
-        wait $pid || { log_error "Failed to connect to a node via SSH"; exit 1; }
-    done
-    log_success "All nodes are accessible via SSH"
-
-    # Install Kubernetes prerequisites on all nodes in parallel
-    log_info "Installing Kubernetes prerequisites on all nodes in parallel..."
-    install_kubernetes_prerequisites $CONTROL_PLANE_IP "${CLUSTER_NAME}-control-1" &
-    local control_k8s_pid=$!
-
-    declare -a k8s_pids
-    for i in "${!WORKER_IPS[@]}"; do
-        install_kubernetes_prerequisites "${WORKER_IPS[$i]}" "${CLUSTER_NAME}-worker-$((i+1))" &
-        k8s_pids+=( $! )
-    done
-
-    # Wait for all Kubernetes installations to complete
-    wait $control_k8s_pid || { log_error "Failed to install Kubernetes on control plane"; exit 1; }
-    for pid in "${k8s_pids[@]}"; do
-        wait $pid || { log_error "Failed to install Kubernetes on worker node"; exit 1; }
-    done
-    log_success "Kubernetes installed on all nodes"
 
     initialize_control_plane
 

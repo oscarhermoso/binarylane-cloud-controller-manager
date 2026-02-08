@@ -8,10 +8,11 @@
 - Ensure any defaults are the same in deploy/ and charts/
 
 ## Testing instructions
+- Add or update tests for the code you change, even if nobody asked.
 - Tests are defined in:
   - `charts/binarylane-cloud-controller-manager/tests`
   - `scripts/e2e-tests.sh`
   - `internal/**/*_test.go`
-- Add or update tests for the code you change, even if nobody asked.
 - Run deploy-cluster.sh before e2e-tests.sh, and then delete-cluster.sh after.
 - Run golangci-lint locally to ensure no linting errors.
+- Before finishing, run tests and ensure they pass.
