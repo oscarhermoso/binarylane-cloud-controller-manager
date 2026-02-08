@@ -2,6 +2,7 @@ suite: test deployment
 templates:
   - deployment.yaml
   - rbac.yaml
+  - serviceaccount.yaml
   - test-secret.yaml
 tests:
   - it: should create a deployment with correct replicas
@@ -191,3 +192,22 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].resources.requests.cpu
           value: '200m'
+
+  - it: should set automountServiceAccountToken by default
+    template: serviceaccount.yaml
+    set:
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+    asserts:
+      - equal:
+          path: automountServiceAccountToken
+          value: true
+
+  - it: should set automountServiceAccountToken when configured
+    template: serviceaccount.yaml
+    set:
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+      serviceAccount.automount: false
+    asserts:
+      - equal:
+          path: automountServiceAccountToken
+          value: false

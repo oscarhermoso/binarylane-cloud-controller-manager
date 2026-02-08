@@ -40,7 +40,7 @@ kubectl create secret generic binarylane-api-token \
 # Install the chart from GitHub Container Registry
 helm install binarylane-ccm \
   oci://ghcr.io/oscarhermoso/charts/binarylane-cloud-controller-manager \
-  --version 0.2.2 \
+  --version 0.2.4 \
   --namespace kube-system \
   --set cloudControllerManager.secret.name="binarylane-api-token"
 ```
@@ -60,13 +60,13 @@ kubectl create secret generic binarylane-api-token \
 2. **Deploy the RBAC configuration:**
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/oscarhermoso/binarylane-cloud-controller-manager/main/deploy/kubernetes/rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/oscarhermoso/binarylane-cloud-controller-manager/v0.2.4/deploy/kubernetes/rbac.yaml
 ```
 
 3. **Deploy the cloud controller manager:**
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/oscarhermoso/binarylane-cloud-controller-manager/main/deploy/kubernetes/deployment.yaml
+kubectl apply -f https://raw.githubusercontent.com/oscarhermoso/binarylane-cloud-controller-manager/v0.2.4/deploy/kubernetes/deployment.yaml
 ```
 
 ## Configuration

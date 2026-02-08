@@ -56,7 +56,7 @@ spec:
           operator: Exists
       containers:
         - name: binarylane-cloud-controller-manager
-          image: ghcr.io/oscarhermoso/binarylane-cloud-controller-manager:latest
+          image: ghcr.io/oscarhermoso/binarylane-cloud-controller-manager:v0.2.4
           imagePullPolicy: IfNotPresent
           command:
             - '/binarylane-cloud-controller-manager'

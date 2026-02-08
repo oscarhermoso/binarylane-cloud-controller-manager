@@ -30,31 +30,38 @@ rules:
     resources:
       - nodes
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - update
+      - patch
   - apiGroups:
       - ''
     resources:
       - nodes/status
     verbs:
       - patch
+      - update
   - apiGroups:
       - ''
     resources:
       - services
     verbs:
+      - get
       - list
+      - watch
       - patch
       - update
-      - watch
   - apiGroups:
       - ''
     resources:
       - services/status
     verbs:
+      - get
       - list
+      - watch
       - patch
       - update
-      - watch
   - apiGroups:
       - ''
     resources:
@@ -62,6 +69,15 @@ rules:
     verbs:
       - create
       - get
+      - list
+      - watch
+      - update
+  - apiGroups:
+      - ''
+    resources:
+      - serviceaccounts/token
+    verbs:
+      - create
   - apiGroups:
       - ''
     resources:
@@ -69,8 +85,8 @@ rules:
     verbs:
       - get
       - list
-      - update
       - watch
+      - update
   - apiGroups:
       - ''
     resources:
@@ -82,14 +98,20 @@ rules:
       - watch
       - update
   - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - coordination.k8s.io
     resources:
       - leases
     verbs:
       - create
       - get
-      - list
-      - watch
       - update
   - apiGroups:
       - ''

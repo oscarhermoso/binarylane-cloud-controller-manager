@@ -19,6 +19,7 @@ The following table lists the configurable parameters of the chart and their def
 | `cloudControllerManager.secret.name` | Name of secret containing API token | `""`                                                       |
 | `cloudControllerManager.secret.key`  | Key in secret for API token         | `api-token`                                                |
 | `serviceAccount.create`              | Create service account              | `true`                                                     |
+| `serviceAccount.automount`           | Automount SA token                  | `true`                                                     |
 | `serviceAccount.name`                | Service account name                | Generated from template                                    |
 | `resources.limits.cpu`               | CPU limit                           | `200m`                                                     |
 | `resources.limits.memory`            | Memory limit                        | `128Mi`                                                    |
