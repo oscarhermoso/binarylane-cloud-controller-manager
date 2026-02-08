@@ -16,7 +16,7 @@ The following table lists the configurable parameters of the chart and their def
 | `image.repository`                   | Image repository                    | `ghcr.io/oscarhermoso/binarylane-cloud-controller-manager` |
 | `image.pullPolicy`                   | Image pull policy                   | `IfNotPresent`                                             |
 | `image.tag`                          | Image tag                           | Chart appVersion                                           |
-| `cloudControllerManager.secret.name` | Name of secret containing API token | `""`                                                       |
+| `cloudControllerManager.secret.name` | Name of secret containing API token | `"binarylane-api-token"`                                   |
 | `cloudControllerManager.secret.key`  | Key in secret for API token         | `api-token`                                                |
 | `serviceAccount.create`              | Create service account              | `true`                                                     |
 | `serviceAccount.automount`           | Automount SA token                  | `true`                                                     |

@@ -211,3 +211,61 @@ tests:
       - equal:
           path: automountServiceAccountToken
           value: false
+
+  - it: should use correct container name
+    template: deployment.yaml
+    set:
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: binarylane-cloud-controller-manager
+
+  - it: should include --allow-untagged-cloud flag
+    template: deployment.yaml
+    set:
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: --allow-untagged-cloud
+
+  - it: should mount kubernetes config volumes
+    template: deployment.yaml
+    set:
+      cloudControllerManager.secret.name: 'binarylane-api-token'
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: k8s
+            hostPath:
+              path: /etc/kubernetes
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: cloud-config
+            hostPath:
+              path: /etc/kubernetes/config
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            mountPath: /etc/kubernetes/
+            name: k8s
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            mountPath: /etc/kubernetes/config
+            name: cloud-config
+
+  - it: should use default secret name
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BINARYLANE_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: binarylane-api-token
+                key: api-token

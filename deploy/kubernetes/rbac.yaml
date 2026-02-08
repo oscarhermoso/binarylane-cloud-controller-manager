@@ -1,19 +1,23 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cloud-controller-manager
+  name: binarylane-cloud-controller-manager
   namespace: kube-system
   labels:
     app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/instance: binarylane-cloud-controller-manager
+    app.kubernetes.io/version: '0.2.4'
     app.kubernetes.io/component: cloud-controller-manager
     app.kubernetes.io/part-of: kubernetes
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system:cloud-controller-manager
+  name: binarylane-cloud-controller-manager
   labels:
     app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/instance: binarylane-cloud-controller-manager
+    app.kubernetes.io/version: '0.2.4'
     app.kubernetes.io/component: cloud-controller-manager
     app.kubernetes.io/part-of: kubernetes
 rules:
@@ -57,9 +61,6 @@ rules:
     resources:
       - services/status
     verbs:
-      - get
-      - list
-      - watch
       - patch
       - update
   - apiGroups:
@@ -98,20 +99,12 @@ rules:
       - watch
       - update
   - apiGroups:
-      - ''
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - coordination.k8s.io
     resources:
       - leases
     verbs:
-      - create
       - get
+      - create
       - update
   - apiGroups:
       - ''
@@ -121,20 +114,30 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: system:cloud-controller-manager
+  name: binarylane-cloud-controller-manager
   labels:
     app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/instance: binarylane-cloud-controller-manager
+    app.kubernetes.io/version: '0.2.4'
     app.kubernetes.io/component: cloud-controller-manager
     app.kubernetes.io/part-of: kubernetes
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: system:cloud-controller-manager
+  name: binarylane-cloud-controller-manager
 subjects:
   - kind: ServiceAccount
-    name: cloud-controller-manager
+    name: binarylane-cloud-controller-manager
     namespace: kube-system

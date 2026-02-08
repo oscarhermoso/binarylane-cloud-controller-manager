@@ -60,6 +60,8 @@ nodeSelector:
 
 # Tolerations - allow scheduling on control plane nodes
 tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
   - effect: NoSchedule
     key: node-role.kubernetes.io/control-plane
     operator: Exists

@@ -21,7 +21,7 @@ cloudControllerManager:
   # Name of secret containing BinaryLane API token
   # Create: kubectl create secret generic binarylane-api-token --from-literal=api-token="YOUR_TOKEN" -n kube-system
   secret:
-    name: ''
+    name: 'binarylane-api-token'
     key: 'api-token'
 
 serviceAccount:
@@ -53,12 +53,12 @@ securityContext:
   readOnlyRootFilesystem: true
 
 resources:
-  limits:
-    cpu: 200m
-    memory: 128Mi
   requests:
     cpu: 100m
     memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
 
 # Node selector for pod assignment
 nodeSelector:
@@ -66,6 +66,9 @@ nodeSelector:
 
 # Tolerations for pod assignment
 tolerations:
+  # Tolerate CriticalAddonsOnly taint
+  - key: CriticalAddonsOnly
+    operator: Exists
   # Tolerate control-plane taint (Kubernetes 1.24+)
   - effect: NoSchedule
     key: node-role.kubernetes.io/control-plane
