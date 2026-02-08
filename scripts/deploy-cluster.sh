@@ -478,13 +478,21 @@ get_or_create_servers() {
 initialize_control_plane() {
     log_info "Initializing Kubernetes control plane..."
 
+    # Validate CONTROL_PLANE_IP is set
+    if [ -z "${CONTROL_PLANE_IP:-}" ]; then
+        log_error "CONTROL_PLANE_IP is not set. Cannot initialize control plane."
+        return 1
+    fi
+
+    log_info "Control plane IP: $CONTROL_PLANE_IP"
+
     # Check if cluster is already initialized
-    if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP "test -f /etc/kubernetes/admin.conf" 2>/dev/null; then
+    if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@"$CONTROL_PLANE_IP" "test -f /etc/kubernetes/admin.conf" 2>/dev/null; then
         log_info "Control plane already initialized"
         return 0
     fi
 
-    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 root@$CONTROL_PLANE_IP bash <<EOF
+    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 root@"$CONTROL_PLANE_IP" bash <<EOF
 set -euo pipefail
 
 # Create kubeadm config with cloud provider settings
