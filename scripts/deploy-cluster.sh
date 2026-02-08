@@ -382,11 +382,12 @@ USERDATA
 
     # Wait for cloud-init to complete
     log_info "Waiting for cloud-init to complete on $name..."
-    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$server_ip bash <<'EOSSH'
-tail -f /var/log/cloud-init-output.log &
-TAIL_PID=$!
+    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 root@$server_ip bash <<'EOSSH'
+set -e
+# tail is noisy, uncomment for debugging
+# tail -f /var/log/cloud-init-output.log 2>/dev/null || echo "Cloud-init log not yet available"
 cloud-init status --wait >/dev/null || cloud-init status --format json
-kill $TAIL_PID 2>/dev/null || true
+echo "Cloud-init completed successfully"
 EOSSH
     log_success "Cloud-init complete on $name"
 
@@ -483,7 +484,7 @@ initialize_control_plane() {
         return 0
     fi
 
-    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP bash <<EOF
+    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 root@$CONTROL_PLANE_IP bash <<EOF
 set -euo pipefail
 
 # Create kubeadm config with cloud provider settings
@@ -545,12 +546,12 @@ join_worker_nodes() {
             log_info "Joining worker: $worker_name ($worker_ip)"
 
             # Get CA cert hash and token from control plane
-            local ca_hash=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
+            local ca_hash=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 root@$CONTROL_PLANE_IP \
                 "openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'")
-            local token=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP \
+            local token=$(ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 root@$CONTROL_PLANE_IP \
                 "kubeadm token create")
 
-            ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$worker_ip bash <<EOF
+            ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 root@$worker_ip bash <<EOF
 set -euo pipefail
 
 # Create kubeadm join config with cloud provider settings
@@ -613,7 +614,7 @@ deploy_cloud_controller_manager() {
         # Import image to control plane
         log_info "Importing CCM image to control plane..."
         docker save binarylane-cloud-controller-manager:local | \
-            ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no root@$CONTROL_PLANE_IP "ctr -n k8s.io images import -"
+            ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 root@$CONTROL_PLANE_IP "ctr -n k8s.io images import -"
 
         # Create secret with API token
         log_info "Creating secret with API token..."
