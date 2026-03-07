@@ -364,7 +364,7 @@ USERDATA
     log_success "Created server: $name (ID: $server_id, IP: $server_ip)"
 
     # Remove old SSH host key (BinaryLane recycles IPs)
-    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$server_ip" 2>/dev/null || true
+    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$server_ip" >/dev/null 2>&1 || true
 
     # Wait for SSH to be available
     log_info "Waiting for SSH on $name ($server_ip)..."
@@ -382,11 +382,11 @@ USERDATA
 
     # Wait for cloud-init to complete
     log_info "Waiting for cloud-init to complete on $name..."
-    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 root@$server_ip bash <<'EOSSH'
+    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 root@$server_ip bash >&2 <<'EOSSH'
 set -e
 # tail is noisy, uncomment for debugging
 # tail -f /var/log/cloud-init-output.log 2>/dev/null || echo "Cloud-init log not yet available"
-cloud-init status --wait >/dev/null || cloud-init status --format json
+cloud-init status --wait || cloud-init status --format json
 echo "Cloud-init completed successfully"
 EOSSH
     log_success "Cloud-init complete on $name"
