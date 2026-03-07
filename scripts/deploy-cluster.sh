@@ -370,7 +370,7 @@ USERDATA
     log_info "Waiting for SSH on $name ($server_ip)..."
     local ssh_attempts=0
     while [ $ssh_attempts -lt 60 ]; do
-        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o BatchMode=yes root@$server_ip "echo 'SSH ready'" 2>/dev/null; then
+        if ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o BatchMode=yes root@$server_ip "exit 0" >/dev/null 2>&1; then
             log_success "SSH ready on $name"
             break
         fi
