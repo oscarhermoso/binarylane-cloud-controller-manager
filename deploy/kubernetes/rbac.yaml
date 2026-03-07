@@ -1,19 +1,23 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cloud-controller-manager
+  name: binarylane-cloud-controller-manager
   namespace: kube-system
   labels:
     app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/instance: binarylane-cloud-controller-manager
+    app.kubernetes.io/version: '0.2.4'
     app.kubernetes.io/component: cloud-controller-manager
     app.kubernetes.io/part-of: kubernetes
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system:cloud-controller-manager
+  name: binarylane-cloud-controller-manager
   labels:
     app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/instance: binarylane-cloud-controller-manager
+    app.kubernetes.io/version: '0.2.4'
     app.kubernetes.io/component: cloud-controller-manager
     app.kubernetes.io/part-of: kubernetes
 rules:
@@ -30,31 +34,35 @@ rules:
     resources:
       - nodes
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - update
+      - patch
   - apiGroups:
       - ''
     resources:
       - nodes/status
     verbs:
       - patch
+      - update
   - apiGroups:
       - ''
     resources:
       - services
     verbs:
+      - get
       - list
+      - watch
       - patch
       - update
-      - watch
   - apiGroups:
       - ''
     resources:
       - services/status
     verbs:
-      - list
       - patch
       - update
-      - watch
   - apiGroups:
       - ''
     resources:
@@ -62,6 +70,15 @@ rules:
     verbs:
       - create
       - get
+      - list
+      - watch
+      - update
+  - apiGroups:
+      - ''
+    resources:
+      - serviceaccounts/token
+    verbs:
+      - create
   - apiGroups:
       - ''
     resources:
@@ -69,8 +86,8 @@ rules:
     verbs:
       - get
       - list
-      - update
       - watch
+      - update
   - apiGroups:
       - ''
     resources:
@@ -86,10 +103,8 @@ rules:
     resources:
       - leases
     verbs:
-      - create
       - get
-      - list
-      - watch
+      - create
       - update
   - apiGroups:
       - ''
@@ -99,20 +114,30 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: system:cloud-controller-manager
+  name: binarylane-cloud-controller-manager
   labels:
     app.kubernetes.io/name: binarylane-cloud-controller-manager
+    app.kubernetes.io/instance: binarylane-cloud-controller-manager
+    app.kubernetes.io/version: '0.2.4'
     app.kubernetes.io/component: cloud-controller-manager
     app.kubernetes.io/part-of: kubernetes
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: system:cloud-controller-manager
+  name: binarylane-cloud-controller-manager
 subjects:
   - kind: ServiceAccount
-    name: cloud-controller-manager
+    name: binarylane-cloud-controller-manager
     namespace: kube-system
