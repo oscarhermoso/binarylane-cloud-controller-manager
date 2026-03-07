@@ -1141,7 +1141,7 @@ type ChangeSizeOptionsRequest struct {
 	// If specified this is the absolute value, not just the additional transfer above what is included in the size.
 	// Leave null to accept the default for the size if this is a new server or a resize to a different base size, or to keep the current value if this a resize with the same base size but different options.
 	//
-	// Valid values (when converted to GB by multiplying the value provided by 1024):
+	// Valid values (when converted to GB by multiplying the value provided by 1000):
 	// - must be a multiple of 5GB
 	// - &gt; 30GB must be a multiple of 10
 	// - &gt; 200GB must be a multiple of 100
@@ -2877,7 +2877,7 @@ type SizeOptions struct {
 	// TransferCostPerAdditionalGigabyte The additional cost per GB per month for additional included transfer.
 	TransferCostPerAdditionalGigabyte float64 `json:"transfer_cost_per_additional_gigabyte"`
 
-	// TransferMax The maximum transfer in TB permitted for this size.
+	// TransferMax The maximum transfer in TB permitted for this size. If this is the same as Size.Transfer no additional transfer is supported.
 	TransferMax float64 `json:"transfer_max"`
 
 	// WeeklyBackups The number of weekly backups included in the base size cost.
@@ -2923,7 +2923,7 @@ type SizeOptionsRequest struct {
 	// If specified this is the absolute value, not just the additional transfer above what is included in the size.
 	// Leave null to accept the default for the size if this is a new server or a resize to a different base size, or to keep the current value if this a resize with the same base size but different options.
 	//
-	// Valid values (when converted to GB by multiplying the value provided by 1024):
+	// Valid values (when converted to GB by multiplying the value provided by 1000):
 	// - must be a multiple of 5GB
 	// - &gt; 30GB must be a multiple of 10
 	// - &gt; 200GB must be a multiple of 100
