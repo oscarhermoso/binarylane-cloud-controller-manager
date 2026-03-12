@@ -137,7 +137,7 @@ jobs:
         run: ct lint --chart-dirs charts --all --validate-maintainers=false
 
       - name: Create kind cluster
-        uses: helm/kind-action@v1.13.0
+        uses: helm/kind-action@v1.14.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.12.0
